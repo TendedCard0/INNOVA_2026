@@ -104,7 +104,7 @@ class VentanaInnova(ctk.CTk):
             text="Esperando cámara…",
             font=ctk.CTkFont(size=13),
             text_color=COLOR_TEXTO,
-            wraplength=300,
+            wraplength=310,
             justify="left",
         )
         self.lbl_mensaje.pack(anchor="w", padx=20, pady=(0, 16))
@@ -144,7 +144,6 @@ class VentanaInnova(ctk.CTk):
             hover_color="#2EC4B6",
             command=self._iniciar_pipeline,
         )
-        self.btn_reintentar.pack(padx=20, pady=(4, 20), fill="x")
 
         pie = ctk.CTkFrame(self, fg_color="transparent")
         pie.pack(fill="x", padx=24, pady=(4, 14))
@@ -166,10 +165,10 @@ class VentanaInnova(ctk.CTk):
                 modo_demo=self._modo_demo,
                 indice_camara=self._indice_camara,
             )
-            self.btn_reintentar.configure(state="disabled")
+            self.btn_reintentar.pack_forget()
         except CamaraNoDisponibleError as exc:
             self._error_camara = str(exc)
-            self.btn_reintentar.configure(state="normal")
+            self.btn_reintentar.pack(padx=20, pady=(4, 20), fill="x")
             self.lbl_sena.configure(text="—")
             self.lbl_mensaje.configure(
                 text=MENSAJE_CAMARA_AUSENTE,
