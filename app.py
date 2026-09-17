@@ -1,4 +1,4 @@
-"""INNOVA 2026 — punto de entrada de la aplicación de escritorio."""
+"""Mamatlatolli — punto de entrada de la aplicación de escritorio."""
 
 from __future__ import annotations
 

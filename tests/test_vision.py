@@ -28,7 +28,7 @@ class TestOverlay(unittest.TestCase):
         self.assertGreater(int(pintado.sum()), int(base.sum()))
 
     def test_frame_mensaje_tiene_el_tamano_pedido(self) -> None:
-        img = frame_mensaje(["Hola", "INNOVA"], 200, 120)
+        img = frame_mensaje(["Hola", "Mamatlatolli"], 200, 120)
         self.assertEqual(img.shape, (120, 200, 3))
 
 
