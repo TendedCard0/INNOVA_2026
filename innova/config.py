@@ -1,0 +1,69 @@
+"""Constantes y textos visibles de la aplicación (español de México)."""
+
+from __future__ import annotations
+
+TITULO_VENTANA = "INNOVA 2026 — Reconocimiento de LSM"
+SUBTITULO = "Lengua de Señas Mexicana · prototipo fase 1"
+
+ANCHO_VIDEO = 640
+ALTO_VIDEO = 480
+FPS_OBJETIVO = 30
+MAX_MANOS = 2
+MAX_LINEAS_TRANSCRIPCION = 10
+INTERVALO_TRANSCRIPCION_S = 2.0
+
+# Confianza mínima de MediaPipe para reportar una mano.
+CONFIANZA_DETECCION = 0.6
+CONFIANZA_SEGUIMIENTO = 0.5
+
+ETIQUETA_SIN_DETECCION = "—"
+ETIQUETA_DETECTANDO = "detectando…"
+
+MENSAJE_CAMARA_AUSENTE = (
+    "No se encontró una cámara. Conecta una, revisa los permisos del sistema "
+    "y pulsa «Reintentar cámara», o ejecuta: python app.py --demo"
+)
+
+# Colores de la interfaz (hex para CustomTkinter).
+COLOR_FONDO = "#10151C"
+COLOR_PANEL = "#18202B"
+COLOR_ACENTO = "#2EC4B6"
+COLOR_ACENTO_SUAVE = "#1B4A48"
+COLOR_TEXTO = "#E8EEF4"
+COLOR_TEXTO_MUDO = "#8B9BB4"
+COLOR_ERROR = "#E85D4C"
+COLOR_AVISO = "#F4A261"
+
+# Colores BGR (OpenCV) para el overlay de manos.
+BGR_CONEXION = (180, 196, 46)
+BGR_LANDMARK = (90, 220, 255)
+BGR_CAJA = (97, 162, 244)
+BGR_TEXTO = (244, 238, 232)
+BGR_SOMBRA = (16, 18, 22)
+
+# Pares de landmarks al estilo MediaPipe Hands (21 puntos).
+CONEXIONES_MANO: tuple[tuple[int, int], ...] = (
+    (0, 1),
+    (1, 2),
+    (2, 3),
+    (3, 4),  # pulgar
+    (0, 5),
+    (5, 6),
+    (6, 7),
+    (7, 8),  # índice
+    (0, 9),
+    (9, 10),
+    (10, 11),
+    (11, 12),  # medio
+    (0, 13),
+    (13, 14),
+    (14, 15),
+    (15, 16),  # anular
+    (0, 17),
+    (17, 18),
+    (18, 19),
+    (19, 20),  # meñique
+    (5, 9),
+    (9, 13),
+    (13, 17),  # palma
+)
