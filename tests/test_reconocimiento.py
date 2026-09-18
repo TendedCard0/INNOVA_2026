@@ -70,15 +70,15 @@ class TestReconocedorEstatico(unittest.TestCase):
         self.assertEqual(vistos[-1].etiqueta_cruda, "A")
         self.assertTrue(any(v.etiqueta == ETIQUETA_DETECTANDO for v in vistos[:-1]))
 
-    def test_predecir_dinamico_es_gancho_2b(self) -> None:
+    def test_predecir_dinamico_sin_plantillas(self) -> None:
         seq = muestra_dinamica_desde_fotogramas(
             "J",
             [FotogramaSecuencia(t=0.0, mano=None, pose=None, rostro=None)],
         )
         r = self.reconocedor.predecir_dinamico(seq)
         self.assertEqual(r.etiqueta, ETIQUETA_DETECTANDO)
-        self.assertIn("2b", r.mensaje.lower())
-        self.assertIn("dtw", r.mensaje.lower())
+        self.assertIn("dinámic", r.mensaje.lower())
+        self.assertEqual(r.modo, "dinamico")
 
 
 if __name__ == "__main__":

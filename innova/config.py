@@ -8,7 +8,7 @@ from pathlib import Path
 # nombre del software es Mamatlatolli.
 NOMBRE_PRODUCTO = "Mamatlatolli"
 TITULO_VENTANA = "Mamatlatolli — Reconocimiento de LSM"
-SUBTITULO = "Lengua de Señas Mexicana · fase 2a (plantillas estáticas)"
+SUBTITULO = "Lengua de Señas Mexicana · fase 2b (menú y señas dinámicas)"
 
 ANCHO_VIDEO = 640
 ALTO_VIDEO = 480
@@ -24,12 +24,14 @@ CONFIANZA_SEGUIMIENTO = 0.5
 ETIQUETA_SIN_DETECCION = "—"
 ETIQUETA_DETECTANDO = "detectando…"
 
-# Reconocimiento estático (fase 2a).
+# Reconocimiento (fase 2a estática + 2b DTW).
 VERSION_ESQUEMA = "1.0"
 RUTA_PLANTILLAS = Path(__file__).resolve().parent.parent / "datos" / "plantillas"
+RUTA_AJUSTES = Path(__file__).resolve().parent.parent / "datos" / "config.json"
 METRICA_DISTANCIA = "euclidiana"  # "euclidiana" | "coseno"
 # Distancia RMS a partir de la cual la confianza cae a 0.
 SATURACION_DISTANCIA = 0.55
+SATURACION_DTW = 0.50
 UMBRAL_CONFIANZA_LETRA = 0.60
 # Histéresis: umbral más bajo para *mantener* la letra ya comprometida.
 UMBRAL_HISTERSIS = 0.40
@@ -37,6 +39,15 @@ FOTOGRAMAS_CONSECUTIVOS = 6
 VOTOS_M = 5
 VENTANA_K = 8
 FOTOGRAMAS_PACIENCIA = 12
+
+# Enrutado automático estático vs dinámico (ventana ~0.4–0.8 s).
+VENTANA_MOVIMIENTO_S = 0.60
+UMBRAL_MOVIMIENTO = 0.08
+SENSIBILIDAD_MOVIMIENTO = 0.50
+MAX_DURACION_DINAMICA_S = 1.80
+MIN_FOTOGRAMAS_DINAMICO = 6
+FOTOGRAMAS_REPOSO_DINAMICO = 5
+COOLDOWN_DINAMICO_S = 0.45
 
 MENSAJE_CAMARA_AUSENTE = (
     "No se encontró una cámara. Conecta una, revisa los permisos del sistema "

@@ -18,3 +18,4 @@ build/
 *.log
 datos/plantillas/*.json
 !datos/plantillas/.gitkeep
+datos/config.json

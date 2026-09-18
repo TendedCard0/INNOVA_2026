@@ -14,7 +14,9 @@ from innova.caracteristicas import (
     distancia_euclidiana,
     extraer_vector,
     normalizar_landmarks,
+    origen_y_escala_muneca,
     vector_caracteristicas,
+    vector_dinamico,
 )
 from innova.detector import ManoDetectada, Punto
 from innova.esquema import muestra_estatica_desde_mano
@@ -62,6 +64,13 @@ class TestNormalizacion(unittest.TestCase):
     def test_vector_tiene_78_dimensiones(self) -> None:
         vec = extraer_vector(_mano_abierta().puntos)
         self.assertEqual(vec.shape, (78,))
+
+    def test_vector_dinamico_agrega_muneca_relativa(self) -> None:
+        origen, escala = origen_y_escala_muneca(_mano_abierta().puntos)
+        vec = vector_dinamico(_mano_abierta(dx=0.1).puntos, origen, escala)
+        self.assertEqual(vec.shape, (80,))
+        # El desplazamiento en x de la muñeca, escalado por la palma, no es cero.
+        self.assertGreater(abs(float(vec[-2])), 0.05)
 
     def test_degenerada_lanza_error(self) -> None:
         puntos = [Punto(0.4, 0.5, 0.0)] * 21
