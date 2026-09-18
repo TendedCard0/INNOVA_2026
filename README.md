@@ -1,21 +1,23 @@
 # Mamatlatolli
 
-Prototipo de escritorio para **reconocer Lengua de Señas Mexicana (LSM)** a partir de la cámara del equipo con IA.
+Prototipo de escritorio para **reconocer Lengua de Señas Mexicana (LSM)** a partir de la cámara del equipo.
 
-**Mamatlatolli** 
+**Mamatlatolli** abre un menú principal: reconocimiento en vivo (letras estáticas y con movimiento), captura de plantillas, biblioteca, configuración y modo demostración.
 
-> Proyecto estudiantil — Instituto Tecnológico de San Juan de el Rio.
+> Proyecto estudiantil — Instituto Tecnológico de San Juan del Río.
 
-## ¿Qué hace hoy? (fase 2a)
+## ¿Qué hace hoy? (fase 2b)
 
-1. Abre la cámara del dispositivo (o un video sintético con `--demo`).
-2. Detecta hasta dos manos y dibuja landmarks, conexiones y un recuadro.
-3. Compara la pose de la mano con **plantillas** guardadas (vectores de landmarks normalizados + distancia).
-4. Aplica un **filtro de estabilidad** (umbral de confianza, voto temporal e histéresis) antes de comprometer una letra.
-5. Muestra la **seña estable**, la **estimación instantánea** (útil para depurar) y una transcripción corta de las letras ya estables.
-6. Permite **capturar una plantilla** desde la cámara: escribes la letra y pulsas *Guardar*.
+1. Arranca en un **menú** en español: *Iniciar reconocimiento*, *Capturar plantillas*, *Biblioteca de señas*, *Configuración*, *Modo demostración*, *Acerca de Mamatlatolli*.
+2. Detecta hasta dos manos (MediaPipe) y dibuja landmarks, conexiones y un recuadro.
+3. Compara una pose quieta con **plantillas estáticas** (vectores de landmarks normalizados).
+4. Si la mano se mueve con claridad ~0,4–0,8 s —o si mantienes **Seña con movimiento** / **Space**— compara la **trayectoria** con plantillas dinámicas mediante **DTW**.
+5. Aplica un **filtro de estabilidad** antes de comprometer una letra (las dinámicas se confirman al terminar el gesto, no en cada fotograma).
+6. Permite **organizar** el banco de señas (captura estática o dinámica, listar, borrar). Eso no es una segunda app de reconocimiento diario.
 
-Aún **no** reconoce letras con movimiento (J, Ñ, Z…) ni vocabulario completo con cuerpo y rostro. Eso es la fase 2b y la fase de vocabulario.
+Aún **no** usa cuerpo ni rostro (`pose` y `rostro` van en `null`). El vocabulario de palabras completas llega después.
+
+Detalle del menú, la captura dinámica y el enrutado automático vs botón: [`docs/menu-y-senas-dinamicas.md`](docs/menu-y-senas-dinamicas.md). Esquema JSON: [`docs/esquema-datos.md`](docs/esquema-datos.md).
 
 ## Requisitos
 
@@ -60,7 +62,7 @@ Desde la raíz del proyecto, con el entorno virtual activado:
 python app.py
 ```
 
-También funciona:
+La ventana abre en el **menú de Mamatlatolli**. También funciona:
 
 ```bash
 python -m innova
@@ -72,11 +74,9 @@ python -m innova
 python app.py --demo
 ```
 
-El modo demostración genera un video sintético con una mano de ejemplo y el mismo overlay / panel de texto. Sirve para practicar la captura de plantillas y ver el filtro, pero no sustituye a una seña real.
+Sigue apareciendo el menú; *Iniciar reconocimiento* y *Modo demostración* usan un video sintético. Sirve para practicar la captura y ver el filtro, pero no sustituye a una seña real.
 
 ### Otra cámara
-
-Si el equipo tiene varias cámaras (por ejemplo la integrada y una USB):
 
 ```bash
 python app.py --camara 1
@@ -84,46 +84,45 @@ python app.py --camara 1
 
 ## Cómo capturar plantillas
 
-El reconocedor **no** descarga conjuntos enormes ni entrena una red. Tú (o quien seña, con su consentimiento) guardas ejemplos de cada letra:
+El reconocedor **no** descarga conjuntos enormes ni entrena una red. Tú (o quien seña, con su consentimiento) guardas ejemplos.
 
-1. Ejecuta `python app.py` (o `--demo`).
-2. Coloca la seña estática frente a la cámara, con la mano bien visible.
-3. En el panel derecho, escribe la letra (por ejemplo `A` o `Ñ`) en el campo *Letra*.
-4. Pulsa **Guardar**.
-5. El archivo se escribe en `datos/plantillas/` con el esquema versionado (mano + metadatos; `pose` y `rostro` quedan en `null`).
-6. Las plantillas se recargan al instante: a partir de ese momento esa pose puede reconocerse.
+### Estática (A, B, C…)
+
+1. Menú → **Capturar plantillas** → tipo **Estática**.
+2. Coloca la seña quieta, con la mano bien visible.
+3. Escribe la letra y pulsa **Guardar pose actual**.
+
+### Dinámica (J, Ñ, Z…)
+
+1. Menú → **Capturar plantillas** → tipo **Dinámica**.
+2. Escribe la etiqueta.
+3. Pulsa **Seña con movimiento** (o mantén **Space**), haz el gesto y suelta.
+4. El archivo lleva `tipo: dinamico` y `secuencia` con los fotogramas (`pose` / `rostro` = `null`).
 
 Recomendaciones:
 
-- Captura **varias** plantillas por letra (distinta distancia, un poco de giro, otra iluminación).
-- Solo guarda señas de personas que hayan dado **consentimiento** (el JSON guarda ese dato en `metadatos.consentimiento`).
-- Las letras con trayectoria (J, Ñ, Z, algunas palabras) se grabarán como `tipo: dinamico` en la fase 2b; hoy el botón guarda plantillas **estáticas**.
-
-Los JSON de `datos/plantillas/` no se suben al git (pueden contener datos personales). El detalle de cada campo está en [`docs/esquema-datos.md`](docs/esquema-datos.md).
+- Varias plantillas por letra (distancia, giro, luz).
+- Solo con **consentimiento** (`metadatos.consentimiento`).
+- Los JSON de `datos/plantillas/` no se suben al git.
 
 ## Cómo funciona el reconocimiento
 
 1. **Landmarks.** MediaPipe Hands entrega 21 puntos (x, y, z) por mano.
-2. **Normalización.** Se traslada la muñeca al origen y se escala por el tamaño de la palma. No se rota: varias letras LSM se distinguen por la orientación.
-3. **Vector.** Se arma un vector de 78 números (coords normalizadas + distancias entre puntas).
-4. **Matching.** Se compara con cada plantilla estática (distancia euclidiana RMS, o coseno) y se obtiene una confianza `1 − distancia/saturación`.
-5. **Estabilidad.** Una letra solo pasa a *seña estable* y a la transcripción si:
-   - la confianza supera el umbral, **y**
-   - hay **N fotogramas consecutivos** de la misma letra **o** **M de los últimos K**, **y**
-   - la **histéresis** evita el parpadeo: la letra ya comprometida se mantiene con un umbral más bajo y no cambia hasta que otra también se estabilice.
+2. **Enrutado.** Si la muñeca se mueve con claridad en una ventana de ~0,6 s (0,4–0,8 s), se trata como seña dinámica. Si está estable, como estática. El botón *Seña con movimiento* o Space fuerza el modo dinámico.
+3. **Estático.** Se normaliza (muñeca al origen, palma ≈ 1, sin rotar), se arma un vector de 78 números y se compara con plantillas `tipo: estatico` (euclidiana RMS o coseno).
+4. **Dinámico (DTW).** Cada fotograma suma esa forma más la muñeca relativa al inicio del gesto (80 números). Dynamic Time Warping alinea la secuencia con las plantillas `tipo: dinamico`.
+5. **Estabilidad.** Una letra estática solo se compromete con umbral + N consecutivos o M-de-K e histéresis. Una dinámica se compromete **al terminar** el gesto si la confianza basta; no se escribe un renglón por fotograma.
 6. Si no hay acuerdo, la UI muestra `detectando…` (hay mano) o `—` (no hay mano).
-
-La estimación del fotograma actual se ve aparte, como *Estimación instantánea*, para depurar sin ensuciar la transcripción.
-
-El gancho `predecir_dinamico(secuencia)` ya existe y, por ahora, responde que el DTW llega en la fase 2b.
 
 ## Teclas
 
 | Tecla | Acción |
 | --- | --- |
-| `Esc` o `Q` | Cerrar la aplicación (Q no cierra si estás escribiendo la letra) |
-| Botón *Reintentar cámara* | Volver a buscar un dispositivo si no se encontró al inicio |
-| Botón *Guardar* | Guardar la mano actual como plantilla de la letra escrita |
+| `Esc` o `Q` | Cerrar Mamatlatolli (Q no cierra si estás escribiendo) |
+| `Space` (mantener) | Grabar / reconocer una seña con movimiento |
+| Botón *← Menú* | Volver al menú principal |
+| Botón *Reintentar cámara* | Volver a buscar un dispositivo si no se encontró |
+| Botón *Seña con movimiento* | Forzar grabación dinámica (clic para empezar y terminar) |
 
 ## Permisos de la cámara
 
@@ -133,29 +132,33 @@ Si la ventana indica que **no se encontró una cámara**, casi siempre es un per
 - **macOS:** Configuración del Sistema → Privacidad y seguridad → Cámara → activa el permiso para Terminal, VS Code o Python.
 - **Linux:** verifica que tu usuario esté en el grupo `video` y que ninguna otra aplicación tenga el dispositivo `/dev/video0` bloqueado.
 
-Cierra otras apps que usen la cámara e intenta de nuevo, o pulsa **Reintentar cámara**.
+Cierra otras apps que usen la cámara e intenta de nuevo, o pulsa **Reintentar cámara**, o entra a **Modo demostración**.
 
 ## Estructura del código
 
 ```
 app.py                     Punto de entrada
 innova/
+  menu.py                  Destinos del menú (sin Tk)
+  pantallas.py             Menú, reconocimiento, captura, biblioteca, ajustes
+  ui.py                    Ventana (CustomTkinter) y navegación
   camara.py                Captura (cámara real o fuente demo)
   detector.py              MediaPipe Hands + detector de demostración
   esquema.py               JSON versionado: muestra estática / secuencia
-  caracteristicas.py       Normalización, vector y distancias
-  plantillas.py            Leer/escribir datos/plantillas/
+  caracteristicas.py       Normalización, vector estático y vector dinámico
+  dtw.py                   Dynamic Time Warping
+  movimiento.py            Detector de movimiento (auto-DTW)
+  ajustes.py               datos/config.json
+  plantillas.py            Leer/escribir/borrar datos/plantillas/
   estabilidad.py           Umbral + voto temporal + histéresis
-  reconocimiento.py        crear_reconocedor() / ReconocedorEstatico
+  reconocimiento.py        crear_reconocedor() / estático + predecir_dinamico()
   overlay.py               Landmarks, conexiones y recuadro
   pipeline.py              Une todo fotograma a fotograma
-  ui.py                    Ventana (CustomTkinter)
   config.py                Textos, tamaños y umbrales
-docs/esquema-datos.md      Documentación del esquema (español)
+docs/esquema-datos.md      Esquema JSON (español)
+docs/menu-y-senas-dinamicas.md  Menú, captura DTW, auto vs botón
 datos/plantillas/          Plantillas JSON (locales, no se versionan)
 ```
-
-La UI **no** habla con MediaPipe ni con el matching: solo recibe un `ResultadoReconocimiento`. En la fase 2b se puede enriquecer `predecir_dinamico()` sin reescribir la ventana.
 
 ## Hoja de ruta
 
@@ -167,19 +170,19 @@ La UI **no** habla con MediaPipe ni con el matching: solo recibe un `ResultadoRe
 - [x] Transcripción reciente
 - [x] Mensaje claro si no hay cámara
 
-### Fase 2a (esta versión)
+### Fase 2a
 
 - [x] Esquema JSON versionado (mano + pose/rostro reservados + secuencia)
-- [x] Captura de plantillas estáticas desde la cámara o el modo demo
+- [x] Captura de plantillas estáticas
 - [x] Matching por vectores normalizados (euclidiana / coseno)
 - [x] Filtro de estabilidad (umbral, N consecutivos / M-de-K, histéresis)
-- [x] Gancho `predecir_dinamico()` para la fase 2b
 
-### Fase 2b (siguiente)
+### Fase 2b (esta versión)
 
-- Grabar **secuencias** (`tipo: dinamico`) para letras con movimiento
-- Comparar trayectorias con **DTW** (Dynamic Time Warping) sobre `secuencia.fotogramas`
-- Decidir automáticamente si una seña es estática o dinámica
+- [x] Menú principal y pantallas (captura, biblioteca, configuración, demo, acerca de)
+- [x] Captura de secuencias `tipo: dinamico`
+- [x] `predecir_dinamico()` con DTW
+- [x] Enrutado automático estático vs dinámico + botón/Space
 
 ### Vocabulario completo (después)
 
@@ -208,10 +211,13 @@ Es normal: carga el modelo de manos. Los siguientes arranques son más rápidos.
 Es intencional: la vista espejo se siente más natural, como una videollamada.
 
 **Todo el tiempo aparece `detectando…`**  
-Aún no hay plantillas, o la pose no se parece a ninguna. Captura la letra otra vez, más de frente y con mejor luz. La *estimación instantánea* te dice qué plantilla está ganando aunque todavía no sea estable.
+Aún no hay plantillas, o la pose/trayectoria no se parece a ninguna. Captura otra vez. La *estimación instantánea* muestra qué plantilla va ganando.
 
-**Guardar plantilla dice que no hay mano**  
-Espera a que el overlay dibuje la mano y vuelve a pulsar *Guardar*.
+**Las letras con movimiento no se reconocen**  
+Tienen que existir plantillas **dinámicas**. En Capturar plantillas elige *Dinámica* y graba el gesto. Si el automático no dispara, usa *Seña con movimiento* o sube la sensibilidad en Configuración.
+
+**Guardar plantilla dice que no hay mano / seña corta**  
+Espera el overlay. En dinámicas, mantén el botón durante todo el gesto (mínimo ~6 fotogramas).
 
 ## Licencia y uso
 

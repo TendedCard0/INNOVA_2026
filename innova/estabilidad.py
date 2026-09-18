@@ -8,8 +8,9 @@ una letra cuando:
 3. La histéresis evita que una letra ya mostrada parpadee: se mantiene con un
    umbral más bajo y no cambia hasta que otra letra también se estabilice.
 
-Las letras en movimiento (J, Ñ, Z, etc.) se resolverán en la fase 2b con DTW;
-aquí el filtro opera sobre etiquetas estáticas fotograma a fotograma.
+Las letras en movimiento (J, Ñ, Z, etc.) se resuelven con DTW sobre la
+secuencia completa; este filtro opera sobre etiquetas estáticas fotograma a
+fotograma.
 """
 
 from __future__ import annotations

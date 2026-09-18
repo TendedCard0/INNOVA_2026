@@ -84,6 +84,33 @@ class TestEsquemaDinamico(unittest.TestCase):
         self.assertEqual(validar_muestra(bruto), [])
         self.assertEqual(muestra_desde_dict(bruto).etiqueta, "J")
 
+    def test_ida_y_vuelta_por_archivo(self) -> None:
+        import tempfile
+        from pathlib import Path
+
+        from innova.plantillas import cargar_muestra, guardar_plantilla
+
+        mano = muestra_estatica_desde_mano(_mano(), "J").mano
+        muestra = muestra_dinamica_desde_fotogramas(
+            "j",
+            [
+                FotogramaSecuencia(t=0.0, mano=mano, pose=None, rostro=None),
+                FotogramaSecuencia(t=0.04, mano=mano, pose=None, rostro=None),
+                FotogramaSecuencia(t=0.08, mano=mano, pose=None, rostro=None),
+            ],
+            origen="test",
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            ruta = guardar_plantilla(muestra, Path(tmp))
+            recuperada = cargar_muestra(ruta)
+            self.assertEqual(recuperada.tipo, "dinamico")
+            self.assertEqual(recuperada.etiqueta, "J")
+            self.assertIsNone(recuperada.pose)
+            self.assertIsNone(recuperada.rostro)
+            self.assertEqual(len(recuperada.secuencia.fotogramas), 3)
+            otra = recuperada.a_dict()
+            self.assertEqual(validar_muestra(otra), [])
+
     def test_acepta_pose_y_rostro_futuros(self) -> None:
         bruto = muestra_estatica_desde_mano(_mano(), "A").a_dict()
         bruto["pose"] = {"landmarks": [[0.1, 0.2, 0.0]]}

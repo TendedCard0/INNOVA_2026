@@ -7,11 +7,11 @@ Las plantillas y las futuras secuencias se guardan como JSON versionado
 - una **secuencia dinámica** (varios fotogramas, fase 2b / DTW).
 
 Los campos `pose` y `rostro` ya existen para el vocabulario completo
-(cuerpo y cara). En la fase 2a **siempre van en `null`**: solo corre el
+(cuerpo y cara). En las fases 2a/2b **siempre van en `null`**: solo corre el
 detector de manos.
 
-Los archivos viven en `datos/plantillas/` y se leen al arrancar
-(`crear_reconocedor()`). La validación está en `innova/esquema.py`
+Los archivos viven en `datos/plantillas/` (también se aceptan subcarpetas)
+y se leen al arrancar el reconocedor. La validación está en `innova/esquema.py`
 (`validar_muestra`, `muestra_desde_dict`, `MuestraLSM.a_dict()`).
 
 ## Campos de una muestra
@@ -22,8 +22,8 @@ Los archivos viven en `datos/plantillas/` y se leen al arrancar
 | `etiqueta` | string | Letra o glosa, en mayúsculas (`A`, `Ñ`, `HOLA`). |
 | `tipo` | `"estatico"` \| `"dinamico"` | Estático = un fotograma; dinámico = trayectoria. |
 | `mano` | objeto o `null` | Obligatorio si `tipo` es `estatico`. |
-| `pose` | objeto o `null` | Reservado (MediaPipe Pose, 33 puntos). Fase 2a: `null`. |
-| `rostro` | objeto o `null` | Reservado (malla facial). Fase 2a: `null`. |
+| `pose` | objeto o `null` | Reservado (MediaPipe Pose, 33 puntos). Fases 2a/2b: `null`. |
+| `rostro` | objeto o `null` | Reservado (malla facial). Fases 2a/2b: `null`. |
 | `secuencia` | objeto o `null` | Obligatorio si `tipo` es `dinamico`. |
 | `metadatos` | objeto | Tiempo, fps, notas, consentimiento, origen. |
 
@@ -39,7 +39,7 @@ Los archivos viven en `datos/plantillas/` y se leen al arrancar
 Si al leer un archivo faltan `landmarks_normalizados` o `caracteristicas`,
 se recalculan a partir de `landmarks`.
 
-### `secuencia` (fase 2b)
+### `secuencia` (fase 2b / DTW)
 
 ```json
 {
@@ -56,8 +56,8 @@ se recalculan a partir de `landmarks`.
 ```
 
 `t` es el tiempo en segundos desde el inicio del gesto. El reconocedor
-estático ignora este bloque; `ReconocedorEstatico.predecir_dinamico()` es
-el gancho donde irá DTW.
+estático ignora este bloque; `predecir_dinamico()` compara `fotogramas`
+con Dynamic Time Warping contra las plantillas `tipo: dinamico`.
 
 ### `pose` y `rostro` (vocabulario completo)
 
@@ -104,7 +104,7 @@ ni uno ni otro.
 (El ejemplo recorta las listas; un archivo real lleva 21 puntos y 78
 características.)
 
-## Ejemplo dinámico (listo para 2b)
+## Ejemplo dinámico (fase 2b)
 
 ```json
 {
@@ -124,12 +124,13 @@ características.)
   "metadatos": {
     "marca_tiempo": "2026-09-17T12:00:00+00:00",
     "fps": 30.0,
-    "notas": "Trayectoria; DTW en fase 2b",
+    "notas": "Trayectoria reconocida con DTW",
     "consentimiento": true,
     "origen": "camara"
   }
 }
 ```
 
-En una captura real cada fotograma llevará su `mano` (y más adelante
-`pose` / `rostro`).
+En una captura real cada fotograma lleva su `mano` (y más adelante
+`pose` / `rostro`). Cómo grabar esas secuencias desde el menú está en
+[`menu-y-senas-dinamicas.md`](menu-y-senas-dinamicas.md).

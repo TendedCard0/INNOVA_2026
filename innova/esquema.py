@@ -1,9 +1,9 @@
 """Esquema versionado de muestras LSM (JSON) y helpers de validación.
 
 Una *muestra* es o bien un fotograma estático (una seña de una sola pose) o
-una secuencia dinámica (letras con movimiento, fase 2b). El esquema ya reserva
-campos `pose` y `rostro` para el vocabulario completo; en la fase 2a van en
-null porque solo corre MediaPipe Hands.
+una secuencia dinámica (letras con movimiento, DTW). El esquema reserva
+campos `pose` y `rostro` para el vocabulario completo; en las fases 2a/2b
+van en null porque solo corre MediaPipe Hands.
 """
 
 from __future__ import annotations

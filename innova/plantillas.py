@@ -4,10 +4,19 @@ from __future__ import annotations
 
 import json
 import re
+from dataclasses import dataclass
 from pathlib import Path
 
 from innova.config import RUTA_PLANTILLAS
 from innova.esquema import ErrorEsquema, MuestraLSM, muestra_desde_dict
+
+
+@dataclass
+class InventarioPlantilla:
+    """Una plantilla en disco, con su ruta para listar o borrar."""
+
+    ruta: Path
+    muestra: MuestraLSM
 
 
 def asegurar_directorio(ruta: Path | None = None) -> Path:
@@ -20,7 +29,7 @@ def listar_archivos(ruta: Path | None = None) -> list[Path]:
     destino = Path(ruta) if ruta is not None else RUTA_PLANTILLAS
     if not destino.is_dir():
         return []
-    return sorted(p for p in destino.glob("*.json") if p.is_file())
+    return sorted(p for p in destino.rglob("*.json") if p.is_file())
 
 
 def cargar_muestra(ruta: Path) -> MuestraLSM:
@@ -67,8 +76,31 @@ def cargar_plantillas_con_errores(
     return muestras, errores
 
 
+def inventario_plantillas(
+    ruta: Path | None = None,
+) -> tuple[list[InventarioPlantilla], list[str]]:
+    items: list[InventarioPlantilla] = []
+    errores: list[str] = []
+    for archivo in listar_archivos(ruta):
+        try:
+            items.append(InventarioPlantilla(ruta=archivo, muestra=cargar_muestra(archivo)))
+        except ErrorEsquema as exc:
+            errores.append(f"{archivo.name}: {exc}")
+    return items, errores
+
+
+def eliminar_plantilla(ruta: Path) -> None:
+    destino = Path(ruta)
+    if destino.is_file():
+        destino.unlink()
+
+
 def plantillas_estaticas(muestras: list[MuestraLSM]) -> list[MuestraLSM]:
     return [m for m in muestras if m.tipo == "estatico" and m.mano is not None]
+
+
+def plantillas_dinamicas(muestras: list[MuestraLSM]) -> list[MuestraLSM]:
+    return [m for m in muestras if m.tipo == "dinamico" and m.secuencia is not None]
 
 
 def nombre_archivo_seguro(etiqueta: str) -> str:

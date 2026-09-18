@@ -99,6 +99,46 @@ def extraer_vector(puntos: Sequence[object] | np.ndarray) -> np.ndarray:
     return vector_caracteristicas(normalizar_landmarks(puntos))
 
 
+def origen_y_escala_muneca(puntos: Sequence[object] | np.ndarray) -> tuple[np.ndarray, float]:
+    """Muñeca (x, y) y tamaño de palma en coords de imagen, para alinear trayectorias."""
+    coords = (
+        np.asarray(puntos, dtype=np.float64)
+        if isinstance(puntos, np.ndarray)
+        else matriz_desde_puntos(puntos)
+    )
+    origen = coords[_INDICE_MUNECA, :2].copy()
+    palma = coords[_INDICE_MCP_MEDIO, :2] - origen
+    escala = float(np.linalg.norm(palma))
+    if escala < 1e-6:
+        normas = np.linalg.norm(coords[:, :2] - origen, axis=1)
+        escala = float(np.max(normas))
+    if escala < 1e-6:
+        escala = 1.0
+    return origen, escala
+
+
+def vector_dinamico(
+    puntos: Sequence[object] | np.ndarray,
+    origen_muneca: np.ndarray,
+    escala: float,
+) -> np.ndarray:
+    """Vector de un fotograma dinámico: forma 2a (78) + muñeca relativa (2) = 80.
+
+    La normalización de forma quita la traslación; sin el desplazamiento de la
+    muñeca, J/Ñ/Z se parecerían a una pose quieta. La trayectoria se expresa
+    respecto al primer fotograma del gesto.
+    """
+    forma = extraer_vector(puntos)
+    coords = (
+        np.asarray(puntos, dtype=np.float64)
+        if isinstance(puntos, np.ndarray)
+        else matriz_desde_puntos(puntos)
+    )
+    denom = float(escala) if float(escala) > 1e-6 else 1.0
+    rel = (coords[_INDICE_MUNECA, :2] - np.asarray(origen_muneca, dtype=np.float64).reshape(-1)[:2]) / denom
+    return np.concatenate([forma, rel])
+
+
 def distancia_euclidiana(a: np.ndarray, b: np.ndarray) -> float:
     """Distancia RMS (euclidiana / sqrt(D)) para que no crezca con la dimensión."""
     va = np.asarray(a, dtype=np.float64).reshape(-1)
