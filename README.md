@@ -1,10 +1,10 @@
 # Mamatlatolli
 
-Prototipo de escritorio para **reconocer Lengua de Señas Mexicana (LSM)** a partir de la cámara del equipo.
+Prototipo de escritorio para **reconocer Lengua de Señas Mexicana (LSM)** a partir de la cámara del equipo con IA.
 
-**Mamatlatolli** es el nombre del software. Este repositorio vive en la carpeta de concurso del equipo; el paquete Python se llama `innova` por compatibilidad con la fase 1, pero en la ventana, este README y cualquier texto para usuarias o usuarios siempre verás *Mamatlatolli*.
+**Mamatlatolli** 
 
-> Proyecto estudiantil — Instituto Tecnológico.
+> Proyecto estudiantil — Instituto Tecnológico de San Juan de el Rio.
 
 ## ¿Qué hace hoy? (fase 2a)
 
