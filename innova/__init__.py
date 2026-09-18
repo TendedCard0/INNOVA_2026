@@ -1,3 +1,3 @@
-"""INNOVA 2026 — prototipo de reconocimiento de Lengua de Señas Mexicana (LSM)."""
+"""Mamatlatolli — prototipo de reconocimiento de Lengua de Señas Mexicana (LSM)."""
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"

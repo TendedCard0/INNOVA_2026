@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+import tempfile
 import unittest
 
 from innova.camara import Camara, CamaraNoDisponibleError
@@ -21,19 +23,38 @@ class TestPipelineDemo(unittest.TestCase):
             self.assertEqual(procesado.resultado.etiqueta, ETIQUETA_DETECTANDO)
             self.assertIn("demostración", procesado.fuente.lower())
             self.assertGreater(int(procesado.imagen.sum()), 0)
+            self.assertEqual(procesado.transcripcion, [])
         finally:
             pipeline.cerrar()
 
+    def test_guardar_plantilla_estatica_con_pose_nula(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            pipeline = crear_pipeline(modo_demo=True, ruta_plantillas=tmp)
+            try:
+                self.assertIsNotNone(pipeline.procesar())
+                ruta = pipeline.guardar_plantilla("a", notas="demo")
+                self.assertTrue(ruta.is_file())
+                data = json.loads(ruta.read_text(encoding="utf-8"))
+                self.assertEqual(data["etiqueta"], "A")
+                self.assertEqual(data["tipo"], "estatico")
+                self.assertIsNone(data["pose"])
+                self.assertIsNone(data["rostro"])
+                self.assertIsNone(data["secuencia"])
+                self.assertEqual(len(data["mano"]["landmarks"]), 21)
+                self.assertTrue(data["metadatos"]["consentimiento"])
+                self.assertEqual(pipeline.n_plantillas, 1)
+            finally:
+                pipeline.cerrar()
+
 
 class TestBitacora(unittest.TestCase):
-    def test_ignora_el_guion_y_acumula_otras_etiquetas(self) -> None:
+    def test_ignora_marcadores_y_acumula_letras(self) -> None:
         bitacora = BitacoraTranscripcion(max_lineas=3, intervalo_s=0.0)
         bitacora.registrar("—")
         bitacora.registrar("detectando…")
         bitacora.registrar("A")
-        self.assertEqual(len(bitacora.lineas()), 2)
-        self.assertIn("detectando…", bitacora.lineas()[0])
-        self.assertTrue(bitacora.lineas()[1].endswith("A"))
+        self.assertEqual(len(bitacora.lineas()), 1)
+        self.assertTrue(bitacora.lineas()[0].endswith("A"))
 
 
 class TestCamaraAusente(unittest.TestCase):

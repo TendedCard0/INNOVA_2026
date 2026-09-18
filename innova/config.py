@@ -1,9 +1,14 @@
-"""Constantes y textos visibles de la aplicación (español de México)."""
+"""Constantes y textos visibles de Mamatlatolli (español de México)."""
 
 from __future__ import annotations
 
-TITULO_VENTANA = "INNOVA 2026 — Reconocimiento de LSM"
-SUBTITULO = "Lengua de Señas Mexicana · prototipo fase 1"
+from pathlib import Path
+
+# El paquete Python se llama `innova` (carpeta del repositorio), pero el
+# nombre del software es Mamatlatolli.
+NOMBRE_PRODUCTO = "Mamatlatolli"
+TITULO_VENTANA = "Mamatlatolli — Reconocimiento de LSM"
+SUBTITULO = "Lengua de Señas Mexicana · fase 2a (plantillas estáticas)"
 
 ANCHO_VIDEO = 640
 ALTO_VIDEO = 480
@@ -18,6 +23,20 @@ CONFIANZA_SEGUIMIENTO = 0.5
 
 ETIQUETA_SIN_DETECCION = "—"
 ETIQUETA_DETECTANDO = "detectando…"
+
+# Reconocimiento estático (fase 2a).
+VERSION_ESQUEMA = "1.0"
+RUTA_PLANTILLAS = Path(__file__).resolve().parent.parent / "datos" / "plantillas"
+METRICA_DISTANCIA = "euclidiana"  # "euclidiana" | "coseno"
+# Distancia RMS a partir de la cual la confianza cae a 0.
+SATURACION_DISTANCIA = 0.55
+UMBRAL_CONFIANZA_LETRA = 0.60
+# Histéresis: umbral más bajo para *mantener* la letra ya comprometida.
+UMBRAL_HISTERSIS = 0.40
+FOTOGRAMAS_CONSECUTIVOS = 6
+VOTOS_M = 5
+VENTANA_K = 8
+FOTOGRAMAS_PACIENCIA = 12
 
 MENSAJE_CAMARA_AUSENTE = (
     "No se encontró una cámara. Conecta una, revisa los permisos del sistema "

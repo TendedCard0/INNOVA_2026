@@ -9,7 +9,7 @@ import sys
 def parsear_argumentos(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         prog="app.py",
-        description="INNOVA 2026: prototipo de reconocimiento de Lengua de Señas Mexicana (LSM).",
+        description="Mamatlatolli: prototipo de reconocimiento de Lengua de Señas Mexicana (LSM).",
     )
     parser.add_argument(
         "--demo",

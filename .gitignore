@@ -16,3 +16,5 @@ dist/
 build/
 .DS_Store
 *.log
+datos/plantillas/*.json
+!datos/plantillas/.gitkeep
