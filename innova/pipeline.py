@@ -28,6 +28,7 @@ from innova.reconocimiento import (
     ResultadoReconocimiento,
     crear_reconocedor,
 )
+from innova.tema import BGR_LIMA, BGR_NARANJA
 
 
 @dataclass
@@ -158,7 +159,7 @@ class PipelineVision:
             imagen = poner_banner(
                 imagen,
                 "Modo demostración — landmarks de ejemplo (sin cámara)",
-                (180, 196, 46),
+                BGR_LIMA,
             )
         if self.grabando:
             n = len(self._grabacion) if self._grabacion is not None else 0
@@ -166,7 +167,7 @@ class PipelineVision:
             imagen = poner_banner(
                 imagen,
                 f"Grabando seña con movimiento…{extra}",
-                (90, 220, 255),
+                BGR_NARANJA,
             )
         procesado = FotogramaProcesado(
             imagen=imagen,

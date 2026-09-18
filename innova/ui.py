@@ -5,7 +5,7 @@ from __future__ import annotations
 import customtkinter as ctk
 
 from innova.ajustes import Ajustes, cargar_ajustes
-from innova.config import COLOR_FONDO, TITULO_VENTANA
+from innova.config import TITULO_VENTANA
 from innova.menu import (
     DESTINO_ACERCA,
     DESTINO_BIBLIOTECA,
@@ -24,6 +24,7 @@ from innova.pantallas import (
     PantallaMenu,
     PantallaReconocimiento,
 )
+from innova.tema import COLOR_FONDO, aplicar_tema
 
 
 class VentanaMamatlatolli(ctk.CTk):
@@ -37,8 +38,8 @@ class VentanaMamatlatolli(ctk.CTk):
         self._aviso_reconocimiento = ""
 
         self.title(TITULO_VENTANA)
-        self.geometry("860x780")
-        self.minsize(760, 640)
+        self.geometry("1040x820")
+        self.minsize(920, 700)
         self.configure(fg_color=COLOR_FONDO)
         self.protocol("WM_DELETE_WINDOW", self._cerrar)
         self.bind_all("<Escape>", lambda _e: self._cerrar())
@@ -53,7 +54,7 @@ class VentanaMamatlatolli(ctk.CTk):
 
     def mostrar_menu(self) -> None:
         self._navegador.volver()
-        self.geometry("860x780")
+        self.geometry("1040x820")
         self._cambiar(
             PantallaMenu(
                 self._contenedor,
@@ -86,7 +87,7 @@ class VentanaMamatlatolli(ctk.CTk):
             )
             return
         if destino == DESTINO_BIBLIOTECA:
-            self.geometry("900x720")
+            self.geometry("1040x760")
             self._cambiar(
                 PantallaBiblioteca(
                     self._contenedor,
@@ -96,7 +97,7 @@ class VentanaMamatlatolli(ctk.CTk):
             )
             return
         if destino == DESTINO_CONFIGURACION:
-            self.geometry("860x740")
+            self.geometry("1040x780")
             self._cambiar(
                 PantallaConfiguracion(
                     self._contenedor,
@@ -107,7 +108,7 @@ class VentanaMamatlatolli(ctk.CTk):
             )
             return
         if destino == DESTINO_ACERCA:
-            self.geometry("860x700")
+            self.geometry("1040x720")
             self._cambiar(PantallaAcercaDe(self._contenedor, on_volver=self.mostrar_menu))
             return
         self.mostrar_menu()
@@ -201,7 +202,6 @@ VentanaInnova = VentanaMamatlatolli
 
 
 def ejecutar_app(*, modo_demo: bool = False, indice_camara: int = 0) -> None:
-    ctk.set_appearance_mode("dark")
-    ctk.set_default_color_theme("blue")
+    aplicar_tema()
     ventana = VentanaMamatlatolli(modo_demo=modo_demo, indice_camara=indice_camara)
     ventana.mainloop()
