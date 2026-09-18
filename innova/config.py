@@ -4,6 +4,23 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from innova.tema import (  # noqa: F401 — reexportados para overlay y código existente
+    BGR_CAJA,
+    BGR_CONEXION,
+    BGR_LANDMARK,
+    BGR_SOMBRA,
+    BGR_TEXTO,
+    COLOR_ACENTO,
+    COLOR_ACENTO_HOVER,
+    COLOR_ACENTO_SUAVE,
+    COLOR_AVISO,
+    COLOR_ERROR,
+    COLOR_FONDO,
+    COLOR_PANEL,
+    COLOR_TEXTO,
+    COLOR_TEXTO_MUDO,
+)
+
 # El paquete Python se llama `innova` (carpeta del repositorio), pero el
 # nombre del software es Mamatlatolli.
 NOMBRE_PRODUCTO = "Mamatlatolli"
@@ -54,22 +71,7 @@ MENSAJE_CAMARA_AUSENTE = (
     "y pulsa «Reintentar cámara», o ejecuta: python app.py --demo"
 )
 
-# Colores de la interfaz (hex para CustomTkinter).
-COLOR_FONDO = "#10151C"
-COLOR_PANEL = "#18202B"
-COLOR_ACENTO = "#2EC4B6"
-COLOR_ACENTO_SUAVE = "#1B4A48"
-COLOR_TEXTO = "#E8EEF4"
-COLOR_TEXTO_MUDO = "#8B9BB4"
-COLOR_ERROR = "#E85D4C"
-COLOR_AVISO = "#F4A261"
-
-# Colores BGR (OpenCV) para el overlay de manos.
-BGR_CONEXION = (180, 196, 46)
-BGR_LANDMARK = (90, 220, 255)
-BGR_CAJA = (97, 162, 244)
-BGR_TEXTO = (244, 238, 232)
-BGR_SOMBRA = (16, 18, 22)
+# Los colores (hex y BGR) se definen en innova.tema y se reexportan arriba.
 
 # Pares de landmarks al estilo MediaPipe Hands (21 puntos).
 CONEXIONES_MANO: tuple[tuple[int, int], ...] = (

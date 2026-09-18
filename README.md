@@ -2,13 +2,15 @@
 
 Prototipo de escritorio para **reconocer Lengua de Señas Mexicana (LSM)** a partir de la cámara del equipo.
 
-**Mamatlatolli** abre un menú principal: reconocimiento en vivo (letras estáticas y con movimiento), captura de plantillas, biblioteca, configuración y modo demostración.
+**Mamatlatolli** abre un menú principal de tarjetas: reconocimiento en vivo (letras estáticas y con movimiento), captura de plantillas, biblioteca, configuración y modo demostración.
+
+El menú usa un fondo claro y acentos tríadicos (**naranja**, **lima** e **índigo**). Arriba va el logo: si existe `assets/logo.png` se muestra; si no, un marco placeholder (el isotipo aún está en desarrollo).
 
 > Proyecto estudiantil — Instituto Tecnológico de San Juan del Río.
 
 ## ¿Qué hace hoy? (fase 2b)
 
-1. Arranca en un **menú** en español: *Iniciar reconocimiento*, *Capturar plantillas*, *Biblioteca de señas*, *Configuración*, *Modo demostración*, *Acerca de Mamatlatolli*.
+1. Arranca en un **menú** de tarjetas en español: *Iniciar reconocimiento*, *Capturar plantillas*, *Biblioteca de señas*, *Configuración*, *Modo demostración*, *Acerca de Mamatlatolli*. El logo (o su placeholder) va centrado arriba.
 2. Detecta hasta dos manos (MediaPipe) y dibuja landmarks, conexiones y un recuadro.
 3. Compara una pose quieta con **plantillas estáticas** (vectores de landmarks normalizados).
 4. Si la mano se mueve con claridad ~0,4–0,8 s —o si mantienes **Seña con movimiento** / **Space**— compara la **trayectoria** con plantillas dinámicas mediante **DTW**.
@@ -139,6 +141,7 @@ Cierra otras apps que usen la cámara e intenta de nuevo, o pulsa **Reintentar c
 ```
 app.py                     Punto de entrada
 innova/
+  tema.py                  Paleta tríadica (naranja / lima / índigo) y logo
   menu.py                  Destinos del menú (sin Tk)
   pantallas.py             Menú, reconocimiento, captura, biblioteca, ajustes
   ui.py                    Ventana (CustomTkinter) y navegación
@@ -154,10 +157,11 @@ innova/
   reconocimiento.py        crear_reconocedor() / estático + predecir_dinamico()
   overlay.py               Landmarks, conexiones y recuadro
   pipeline.py              Une todo fotograma a fotograma
-  config.py                Textos, tamaños y umbrales
+  config.py                Textos, tamaños y umbrales (colores reexportados de tema)
 docs/esquema-datos.md      Esquema JSON (español)
 docs/menu-y-senas-dinamicas.md  Menú, captura DTW, auto vs botón
 datos/plantillas/          Plantillas JSON (locales, no se versionan)
+assets/logo.png            Isotipo (opcional; si falta, el menú usa un placeholder)
 ```
 
 ## Hoja de ruta

@@ -15,14 +15,6 @@ from innova.camara import CamaraNoDisponibleError
 from innova.config import (
     ALTO_VIDEO,
     ANCHO_VIDEO,
-    COLOR_ACENTO,
-    COLOR_ACENTO_SUAVE,
-    COLOR_AVISO,
-    COLOR_ERROR,
-    COLOR_FONDO,
-    COLOR_PANEL,
-    COLOR_TEXTO,
-    COLOR_TEXTO_MUDO,
     FPS_OBJETIVO,
     MENSAJE_CAMARA_AUSENTE,
     NOMBRE_PRODUCTO,
@@ -33,6 +25,31 @@ from innova.menu import OPCIONES_MENU, TEXTO_ACERCA
 from innova.overlay import frame_mensaje
 from innova.pipeline import PipelineVision, crear_pipeline
 from innova.plantillas import eliminar_plantilla, inventario_plantillas
+from innova.tema import (
+    BGR_INDIGO,
+    COLOR_ACENTO,
+    COLOR_ACENTO_HOVER,
+    COLOR_AVISO,
+    COLOR_BORDE,
+    COLOR_CAMPO,
+    COLOR_ERROR,
+    COLOR_ERROR_HOVER,
+    COLOR_FONDO,
+    COLOR_NARANJA,
+    COLOR_NARANJA_HOVER,
+    COLOR_NARANJA_SUAVE,
+    COLOR_TARJETA,
+    COLOR_TARJETA_HOVER,
+    COLOR_TARJETA_PRESION,
+    COLOR_TEXTO,
+    COLOR_TEXTO_INVERSO,
+    COLOR_TEXTO_MUDO,
+    TRIDADA,
+    acento_de_indice,
+    icono_menu,
+    imagen_logo,
+    nombres_iconos_menu,
+)
 
 _INTERVALO_MS = max(15, int(1000 / FPS_OBJETIVO))
 
@@ -44,14 +61,18 @@ def _encabezado(
     on_volver: Callable[[], None] | None,
 ) -> ctk.CTkFrame:
     barra = ctk.CTkFrame(parent, fg_color="transparent")
-    barra.pack(fill="x", padx=24, pady=(16, 8))
+    barra.pack(fill="x", padx=28, pady=(18, 10))
     if on_volver is not None:
         ctk.CTkButton(
             barra,
             text="← Menú",
-            width=100,
-            fg_color=COLOR_ACENTO_SUAVE,
-            hover_color=COLOR_ACENTO,
+            width=108,
+            height=36,
+            corner_radius=12,
+            fg_color=COLOR_ACENTO,
+            hover_color=COLOR_ACENTO_HOVER,
+            text_color=COLOR_TEXTO_INVERSO,
+            font=ctk.CTkFont(size=14, weight="bold"),
             command=on_volver,
         ).pack(side="left", padx=(0, 16))
     textos = ctk.CTkFrame(barra, fg_color="transparent")
@@ -60,7 +81,7 @@ def _encabezado(
         textos,
         text=titulo,
         font=ctk.CTkFont(size=24, weight="bold"),
-        text_color=COLOR_ACENTO,
+        text_color=COLOR_TEXTO,
     ).pack(anchor="w")
     ctk.CTkLabel(
         textos,
@@ -84,6 +105,161 @@ def _pie(parent: ctk.CTkBaseClass, texto: str) -> None:
     ).pack(anchor="w")
 
 
+def _recorrer_widgets(widget: Any, fn: Callable[[Any], None]) -> None:
+    fn(widget)
+    for hijo in widget.winfo_children():
+        _recorrer_widgets(hijo, fn)
+
+
+class MarcaMamatlatolli(ctk.CTkFrame):
+    """Logo real (`assets/logo.png`) o marco placeholder + wordmark."""
+
+    def __init__(self, master: Any) -> None:
+        super().__init__(master, fg_color="transparent")
+        pil, _es_archivo = imagen_logo(104)
+        self._logo_ctk = ctk.CTkImage(light_image=pil, dark_image=pil, size=pil.size)
+        ctk.CTkLabel(self, image=self._logo_ctk, text="").pack(pady=(4, 0))
+        ctk.CTkLabel(
+            self,
+            text=NOMBRE_PRODUCTO,
+            font=ctk.CTkFont(size=32, weight="bold"),
+            text_color=COLOR_TEXTO,
+        ).pack(pady=(12, 0))
+        ctk.CTkLabel(
+            self,
+            text=SUBTITULO,
+            font=ctk.CTkFont(size=14),
+            text_color=COLOR_TEXTO_MUDO,
+        ).pack(pady=(2, 10))
+        tira = ctk.CTkFrame(self, fg_color="transparent")
+        tira.pack()
+        for color in TRIDADA:
+            segmento = ctk.CTkFrame(
+                tira,
+                fg_color=color,
+                width=36,
+                height=6,
+                corner_radius=3,
+            )
+            segmento.pack_propagate(False)
+            segmento.pack(side="left", padx=3)
+
+
+class TarjetaMenu(ctk.CTkFrame):
+    """Tarjeta clicable: icono + título + subtítulo, con hover/press."""
+
+    def __init__(
+        self,
+        master: Any,
+        *,
+        destino: str,
+        etiqueta: str,
+        descripcion: str,
+        indice: int,
+        on_ir: Callable[[str], None],
+    ) -> None:
+        self._destino = destino
+        self._on_ir = on_ir
+        self._acento = acento_de_indice(indice)
+        super().__init__(
+            master,
+            fg_color=COLOR_TARJETA,
+            corner_radius=22,
+            border_width=1,
+            border_color=COLOR_BORDE,
+            cursor="hand2",
+        )
+        glifo = nombres_iconos_menu()[indice]
+        pil = icono_menu(glifo, self._acento, lado=58)
+        self._icono_ctk = ctk.CTkImage(light_image=pil, dark_image=pil, size=pil.size)
+
+        interior = ctk.CTkFrame(self, fg_color="transparent")
+        interior.pack(fill="both", expand=True, padx=18, pady=18)
+
+        ctk.CTkLabel(interior, image=self._icono_ctk, text="").pack(side="left", padx=(0, 14))
+
+        textos = ctk.CTkFrame(interior, fg_color="transparent")
+        textos.pack(side="left", fill="both", expand=True)
+        ctk.CTkLabel(
+            textos,
+            text=etiqueta,
+            font=ctk.CTkFont(size=17, weight="bold"),
+            text_color=COLOR_TEXTO,
+            anchor="w",
+            justify="left",
+        ).pack(anchor="w")
+        ctk.CTkLabel(
+            textos,
+            text=descripcion,
+            font=ctk.CTkFont(size=13),
+            text_color=COLOR_TEXTO_MUDO,
+            wraplength=320,
+            anchor="w",
+            justify="left",
+        ).pack(anchor="w", pady=(4, 0))
+
+        ctk.CTkLabel(
+            interior,
+            text="›",
+            font=ctk.CTkFont(size=28),
+            text_color=self._acento,
+            width=24,
+        ).pack(side="right", padx=(8, 0))
+
+        self._reposo()
+        _recorrer_widgets(self, self._vincular)
+
+    def _vincular(self, widget: Any) -> None:
+        try:
+            widget.configure(cursor="hand2")
+        except Exception:  # noqa: BLE001 — canvas interno de CTk
+            pass
+        widget.bind("<Enter>", self._al_entrar)
+        widget.bind("<Leave>", self._al_salir)
+        widget.bind("<ButtonPress-1>", self._al_presionar)
+        widget.bind("<ButtonRelease-1>", self._al_soltar)
+
+    def _puntero_dentro(self) -> bool:
+        try:
+            x, y = self.winfo_pointerxy()
+            return (
+                self.winfo_rootx() <= x <= self.winfo_rootx() + self.winfo_width()
+                and self.winfo_rooty() <= y <= self.winfo_rooty() + self.winfo_height()
+            )
+        except Exception:  # noqa: BLE001
+            return False
+
+    def _reposo(self) -> None:
+        self.configure(fg_color=COLOR_TARJETA, border_color=COLOR_BORDE, border_width=1)
+
+    def _al_entrar(self, _evento=None) -> None:
+        self.configure(
+            fg_color=COLOR_TARJETA_HOVER,
+            border_color=self._acento,
+            border_width=2,
+        )
+
+    def _al_salir(self, _evento=None) -> None:
+        if not self._puntero_dentro():
+            self._reposo()
+
+    def _al_presionar(self, _evento=None) -> None:
+        self.configure(
+            fg_color=COLOR_TARJETA_PRESION,
+            border_color=self._acento,
+            border_width=2,
+        )
+
+    def _al_soltar(self, _evento=None) -> None:
+        if self._puntero_dentro():
+            self._on_ir(self._destino)
+            return
+        try:
+            self._reposo()
+        except Exception:  # noqa: BLE001 — la tarjeta puede haberse destruido
+            pass
+
+
 class PantallaMenu(ctk.CTkFrame):
     def __init__(
         self,
@@ -93,40 +269,42 @@ class PantallaMenu(ctk.CTkFrame):
         demo_cli: bool = False,
     ) -> None:
         super().__init__(master, fg_color=COLOR_FONDO)
-        _encabezado(self, NOMBRE_PRODUCTO, SUBTITULO, on_volver=None)
+        self._tarjetas: list[TarjetaMenu] = []
+
+        cabecera = ctk.CTkFrame(self, fg_color="transparent")
+        cabecera.pack(fill="x", padx=28, pady=(22, 8))
+        MarcaMamatlatolli(cabecera).pack(anchor="center")
+
         if demo_cli:
+            aviso = ctk.CTkFrame(self, fg_color=COLOR_NARANJA_SUAVE, corner_radius=14)
+            aviso.pack(fill="x", padx=36, pady=(4, 8))
             ctk.CTkLabel(
-                self,
+                aviso,
                 text="Arranque con --demo: «Iniciar reconocimiento» también usará video sintético.",
-                text_color=COLOR_AVISO,
+                text_color=COLOR_NARANJA_HOVER,
                 font=ctk.CTkFont(size=13),
                 wraplength=720,
-                justify="left",
-            ).pack(anchor="w", padx=28, pady=(0, 8))
+                justify="center",
+            ).pack(padx=16, pady=10)
 
         cuerpo = ctk.CTkFrame(self, fg_color="transparent")
-        cuerpo.pack(fill="both", expand=True, padx=24, pady=8)
+        cuerpo.pack(fill="both", expand=True, padx=28, pady=(4, 8))
+        cuerpo.grid_columnconfigure(0, weight=1, uniform="menu")
+        cuerpo.grid_columnconfigure(1, weight=1, uniform="menu")
 
-        for destino, etiqueta, descripcion in OPCIONES_MENU:
-            tarjeta = ctk.CTkFrame(cuerpo, fg_color=COLOR_PANEL, corner_radius=14)
-            tarjeta.pack(fill="x", pady=6)
-            ctk.CTkButton(
-                tarjeta,
-                text=etiqueta,
-                font=ctk.CTkFont(size=16, weight="bold"),
-                height=42,
-                fg_color=COLOR_ACENTO_SUAVE,
-                hover_color=COLOR_ACENTO,
-                command=lambda d=destino: on_ir(d),
-            ).pack(fill="x", padx=14, pady=(12, 4))
-            ctk.CTkLabel(
-                tarjeta,
-                text=descripcion,
-                text_color=COLOR_TEXTO_MUDO,
-                font=ctk.CTkFont(size=13),
-                wraplength=700,
-                justify="left",
-            ).pack(anchor="w", padx=18, pady=(0, 12))
+        for indice, (destino, etiqueta, descripcion) in enumerate(OPCIONES_MENU):
+            fila, col = divmod(indice, 2)
+            cuerpo.grid_rowconfigure(fila, weight=1)
+            tarjeta = TarjetaMenu(
+                cuerpo,
+                destino=destino,
+                etiqueta=etiqueta,
+                descripcion=descripcion,
+                indice=indice,
+                on_ir=on_ir,
+            )
+            tarjeta.grid(row=fila, column=col, sticky="nsew", padx=10, pady=10)
+            self._tarjetas.append(tarjeta)
 
         _pie(self, "Esc o Q para salir    ·    Fase 2b: menú, captura dinámica y DTW")
 
@@ -164,12 +342,25 @@ class _PantallaConCamara(ctk.CTkFrame):
         cuerpo = ctk.CTkFrame(self, fg_color="transparent")
         cuerpo.pack(fill="both", expand=True, padx=24, pady=8)
 
-        panel_video = ctk.CTkFrame(cuerpo, fg_color=COLOR_PANEL, corner_radius=16)
+        panel_video = ctk.CTkFrame(
+            cuerpo,
+            fg_color=COLOR_TARJETA,
+            corner_radius=20,
+            border_width=1,
+            border_color=COLOR_BORDE,
+        )
         panel_video.pack(side="left", fill="both", expand=True, padx=(0, 12))
         self.lbl_video = ctk.CTkLabel(panel_video, text="")
         self.lbl_video.pack(padx=12, pady=12, expand=True)
 
-        self.lateral = ctk.CTkFrame(cuerpo, fg_color=COLOR_PANEL, corner_radius=16, width=350)
+        self.lateral = ctk.CTkFrame(
+            cuerpo,
+            fg_color=COLOR_TARJETA,
+            corner_radius=20,
+            border_width=1,
+            border_color=COLOR_BORDE,
+            width=350,
+        )
         self.lateral.pack(side="right", fill="y")
         self.lateral.pack_propagate(False)
 
@@ -178,8 +369,10 @@ class _PantallaConCamara(ctk.CTkFrame):
         self.btn_reintentar = ctk.CTkButton(
             self.lateral,
             text="Reintentar cámara",
-            fg_color=COLOR_ACENTO_SUAVE,
-            hover_color=COLOR_ACENTO,
+            fg_color=COLOR_ACENTO,
+            hover_color=COLOR_ACENTO_HOVER,
+            text_color=COLOR_TEXTO_INVERSO,
+            corner_radius=12,
             command=self._iniciar_pipeline,
         )
 
@@ -269,7 +462,7 @@ class _PantallaConCamara(ctk.CTkFrame):
                 ],
                 ANCHO_VIDEO,
                 ALTO_VIDEO,
-                color_titulo_bgr=(76, 93, 232),
+                    color_titulo_bgr=BGR_INDIGO,
             )
         )
 
@@ -380,8 +573,10 @@ class PantallaReconocimiento(_PantallaConCamara):
         self.btn_movimiento = ctk.CTkButton(
             self.lateral,
             text="Seña con movimiento",
-            fg_color="#3D2E12",
-            hover_color="#F4A261",
+            fg_color=COLOR_NARANJA,
+            hover_color=COLOR_NARANJA_HOVER,
+            text_color=COLOR_TEXTO_INVERSO,
+            corner_radius=12,
             command=self._alternar_hold,
         )
         self.btn_movimiento.pack(fill="x", padx=20, pady=(4, 4))
@@ -413,8 +608,9 @@ class PantallaReconocimiento(_PantallaConCamara):
         self.txt_transcripcion = ctk.CTkTextbox(
             self.lateral,
             height=140,
-            fg_color="#10151C",
+            fg_color=COLOR_CAMPO,
             text_color=COLOR_TEXTO,
+            border_color=COLOR_BORDE,
             font=ctk.CTkFont(size=14),
             wrap="word",
             state="disabled",
@@ -439,12 +635,12 @@ class PantallaReconocimiento(_PantallaConCamara):
     def _al_iniciar_hold(self) -> None:
         if self._pipeline is not None:
             self._pipeline.set_forzar_dinamico(True)
-        self.btn_movimiento.configure(text="Grabando… (clic o suelta Space)", fg_color="#7A3B12")
+        self.btn_movimiento.configure(text="Grabando… (clic o suelta Space)", fg_color=COLOR_NARANJA_HOVER)
 
     def _al_soltar_hold(self) -> None:
         if self._pipeline is not None:
             self._pipeline.set_forzar_dinamico(False)
-        self.btn_movimiento.configure(text="Seña con movimiento", fg_color="#3D2E12")
+        self.btn_movimiento.configure(text="Seña con movimiento", fg_color=COLOR_NARANJA)
 
     def _al_pipeline_listo(self) -> None:
         if self._pipeline is not None:
@@ -525,6 +721,8 @@ class PantallaCaptura(_PantallaConCamara):
             self.lateral,
             values=["Estática", "Dinámica"],
             command=self._on_tipo,
+            selected_color=COLOR_ACENTO,
+            selected_hover_color=COLOR_ACENTO_HOVER,
         )
         self.seg_tipo.set("Estática")
         self.seg_tipo.pack(fill="x", padx=20, pady=(0, 10))
@@ -535,14 +733,22 @@ class PantallaCaptura(_PantallaConCamara):
             font=ctk.CTkFont(size=13),
             text_color=COLOR_TEXTO_MUDO,
         ).pack(anchor="w", padx=20, pady=(4, 4))
-        self.ent_etiqueta = ctk.CTkEntry(self.lateral, placeholder_text="Ej. A, Ñ, J, HOLA")
+        self.ent_etiqueta = ctk.CTkEntry(
+            self.lateral,
+            placeholder_text="Ej. A, Ñ, J, HOLA",
+            fg_color=COLOR_CAMPO,
+            border_color=COLOR_BORDE,
+            text_color=COLOR_TEXTO,
+        )
         self.ent_etiqueta.pack(fill="x", padx=20, pady=(0, 10))
 
         self.btn_guardar = ctk.CTkButton(
             self.lateral,
             text="Guardar pose actual",
-            fg_color=COLOR_ACENTO_SUAVE,
-            hover_color=COLOR_ACENTO,
+            fg_color=COLOR_ACENTO,
+            hover_color=COLOR_ACENTO_HOVER,
+            text_color=COLOR_TEXTO_INVERSO,
+            corner_radius=12,
             command=self._guardar_o_alternar,
         )
         self.btn_guardar.pack(fill="x", padx=20, pady=(4, 6))
@@ -592,12 +798,20 @@ class PantallaCaptura(_PantallaConCamara):
 
     def _on_tipo(self, valor: str) -> None:
         if valor == "Dinámica":
-            self.btn_guardar.configure(text="Seña con movimiento")
+            self.btn_guardar.configure(
+                text="Seña con movimiento",
+                fg_color=COLOR_NARANJA,
+                hover_color=COLOR_NARANJA_HOVER,
+            )
             self.lbl_ayuda.configure(
                 text="Escribe la letra (J, Ñ, Z…). Clic o Space: graba mientras te mueves; al soltar se guarda. pose y rostro quedan en null."
             )
         else:
-            self.btn_guardar.configure(text="Guardar pose actual")
+            self.btn_guardar.configure(
+                text="Guardar pose actual",
+                fg_color=COLOR_ACENTO,
+                hover_color=COLOR_ACENTO_HOVER,
+            )
             self.lbl_ayuda.configure(
                 text="Coloca la seña quieta, escribe la letra y pulsa Guardar. Varias tomas por letra mejoran el matching."
             )
@@ -625,10 +839,10 @@ class PantallaCaptura(_PantallaConCamara):
             self._avisar("Escribe la letra antes de grabar la trayectoria.", COLOR_ERROR)
             return
         self._pipeline.iniciar_grabacion()
-        self.btn_guardar.configure(text="Grabando… suelta para guardar", fg_color="#7A3B12")
+        self.btn_guardar.configure(text="Grabando… suelta para guardar", fg_color=COLOR_NARANJA_HOVER)
 
     def _al_soltar_hold(self) -> None:
-        self.btn_guardar.configure(text="Seña con movimiento", fg_color=COLOR_ACENTO_SUAVE)
+        self.btn_guardar.configure(text="Seña con movimiento", fg_color=COLOR_NARANJA)
         if self._pipeline is None:
             return
         frames = self._pipeline.detener_grabacion()
@@ -727,7 +941,13 @@ class PantallaBiblioteca(ctk.CTkFrame):
             font=ctk.CTkFont(size=13),
         )
         self.lbl_resumen.pack(anchor="w", padx=28, pady=(0, 6))
-        self.scroll = ctk.CTkScrollableFrame(self, fg_color=COLOR_PANEL, corner_radius=14)
+        self.scroll = ctk.CTkScrollableFrame(
+            self,
+            fg_color=COLOR_CAMPO,
+            corner_radius=18,
+            border_width=1,
+            border_color=COLOR_BORDE,
+        )
         self.scroll.pack(fill="both", expand=True, padx=24, pady=8)
         _pie(self, "← Menú    ·    Esc o Q salen    ·    Esto organiza el banco; el uso diario es «Iniciar reconocimiento»")
         self._recargar()
@@ -765,7 +985,13 @@ class PantallaBiblioteca(ctk.CTkFrame):
         detalle = muestra.metadatos.marca_tiempo
         if n_frames:
             detalle += f"  ·  {n_frames} fotogramas"
-        fila = ctk.CTkFrame(self.scroll, fg_color="#10151C", corner_radius=10)
+        fila = ctk.CTkFrame(
+            self.scroll,
+            fg_color=COLOR_TARJETA,
+            corner_radius=14,
+            border_width=1,
+            border_color=COLOR_BORDE,
+        )
         fila.pack(fill="x", padx=8, pady=5)
         ctk.CTkLabel(
             fila,
@@ -782,16 +1008,20 @@ class PantallaBiblioteca(ctk.CTkFrame):
             fila,
             text="Probar",
             width=80,
-            fg_color=COLOR_ACENTO_SUAVE,
-            hover_color=COLOR_ACENTO,
+            fg_color=COLOR_ACENTO,
+            hover_color=COLOR_ACENTO_HOVER,
+            text_color=COLOR_TEXTO_INVERSO,
+            corner_radius=10,
             command=lambda m=muestra: self._on_probar(m.etiqueta, m.tipo),
         ).pack(side="right", padx=(4, 12), pady=10)
         ctk.CTkButton(
             fila,
             text="Eliminar",
             width=90,
-            fg_color="#5A2420",
-            hover_color=COLOR_ERROR,
+            fg_color=COLOR_ERROR,
+            hover_color=COLOR_ERROR_HOVER,
+            text_color=COLOR_TEXTO_INVERSO,
+            corner_radius=10,
             command=lambda p=item.ruta, e=muestra.etiqueta: self._eliminar(p, e),
         ).pack(side="right", padx=4, pady=10)
 
@@ -823,7 +1053,13 @@ class PantallaConfiguracion(ctk.CTkFrame):
             "Se guardan en datos/config.json y se aplican al reconocer",
             on_volver,
         )
-        cuerpo = ctk.CTkFrame(self, fg_color=COLOR_PANEL, corner_radius=16)
+        cuerpo = ctk.CTkFrame(
+            self,
+            fg_color=COLOR_TARJETA,
+            corner_radius=20,
+            border_width=1,
+            border_color=COLOR_BORDE,
+        )
         cuerpo.pack(fill="both", expand=True, padx=24, pady=8)
 
         self._umbral = _fila_slider(
@@ -853,7 +1089,12 @@ class PantallaConfiguracion(ctk.CTkFrame):
             text_color=COLOR_TEXTO_MUDO,
             font=ctk.CTkFont(size=13),
         ).pack(anchor="w", padx=20, pady=(12, 4))
-        self.seg_metrica = ctk.CTkSegmentedButton(cuerpo, values=["euclidiana", "coseno"])
+        self.seg_metrica = ctk.CTkSegmentedButton(
+            cuerpo,
+            values=["euclidiana", "coseno"],
+            selected_color=COLOR_ACENTO,
+            selected_hover_color=COLOR_ACENTO_HOVER,
+        )
         self.seg_metrica.set(ajustes.metrica)
         self.seg_metrica.pack(anchor="w", padx=20, pady=(0, 12))
 
@@ -865,15 +1106,19 @@ class PantallaConfiguracion(ctk.CTkFrame):
         ctk.CTkButton(
             botones,
             text="Guardar ajustes",
-            fg_color=COLOR_ACENTO_SUAVE,
-            hover_color=COLOR_ACENTO,
+            fg_color=COLOR_ACENTO,
+            hover_color=COLOR_ACENTO_HOVER,
+            text_color=COLOR_TEXTO_INVERSO,
+            corner_radius=12,
             command=self._guardar,
         ).pack(side="left", padx=(0, 8))
         ctk.CTkButton(
             botones,
             text="Restaurar valores por omisión",
-            fg_color="#2A3340",
-            hover_color="#3D4A5C",
+            fg_color=COLOR_CAMPO,
+            hover_color=COLOR_BORDE,
+            text_color=COLOR_TEXTO,
+            corner_radius=12,
             command=self._restaurar,
         ).pack(side="left")
 
@@ -921,8 +1166,9 @@ class PantallaAcercaDe(ctk.CTkFrame):
         _encabezado(self, f"Acerca de {NOMBRE_PRODUCTO}", SUBTITULO, on_volver)
         caja = ctk.CTkTextbox(
             self,
-            fg_color=COLOR_PANEL,
+            fg_color=COLOR_TARJETA,
             text_color=COLOR_TEXTO,
+            border_color=COLOR_BORDE,
             font=ctk.CTkFont(size=15),
             wrap="word",
         )
@@ -969,6 +1215,9 @@ class _FilaSlider:
             from_=minimo,
             to=maximo,
             number_of_steps=80,
+            progress_color=COLOR_ACENTO,
+            button_color=COLOR_NARANJA,
+            button_hover_color=COLOR_NARANJA_HOVER,
             command=self._on,
         )
         self.slider.set(valor)
