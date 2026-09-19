@@ -1,9 +1,11 @@
 """Esquema versionado de muestras LSM (JSON) y helpers de validación.
 
 Una *muestra* es o bien un fotograma estático (una seña de una sola pose) o
-una secuencia dinámica (letras con movimiento, DTW). El esquema reserva
-campos `pose` y `rostro` para el vocabulario completo; en las fases 2a/2b
-van en null porque solo corre MediaPipe Hands.
+una secuencia dinámica (trayectoria, DTW). El campo `categoria` separa
+letras (`letra`, Abecedario) de palabras (`palabra`, Vocabulario).
+
+Los campos `pose` y `rostro` ya existen para el vocabulario completo;
+hoy van en null hasta que `innova.cuerpo` active MediaPipe Pose / Face.
 """
 
 from __future__ import annotations
@@ -19,6 +21,11 @@ from innova.detector import ManoDetectada
 VERSIONES_COMPATIBLES = frozenset({"1.0"})
 TIPOS_MUESTRA = frozenset({"estatico", "dinamico"})
 LATERALIDADES = frozenset({"izquierda", "derecha", "desconocida"})
+CATEGORIA_LETRA = "letra"
+CATEGORIA_PALABRA = "palabra"
+CATEGORIA_TODAS = "todas"
+CATEGORIAS_MUESTRA = frozenset({CATEGORIA_LETRA, CATEGORIA_PALABRA})
+FILTROS_CATEGORIA = frozenset({CATEGORIA_LETRA, CATEGORIA_PALABRA, CATEGORIA_TODAS})
 
 
 class ErrorEsquema(ValueError):
@@ -103,11 +110,13 @@ class MuestraLSM:
     secuencia: SecuenciaEsquema | None
     metadatos: MetadatosMuestra
     version: str = VERSION_ESQUEMA
+    categoria: str = CATEGORIA_LETRA
 
     def a_dict(self) -> dict[str, Any]:
         return {
             "version": self.version,
             "etiqueta": self.etiqueta,
+            "categoria": self.categoria,
             "tipo": self.tipo,
             "mano": None if self.mano is None else self.mano.a_dict(),
             "pose": self.pose,
@@ -141,16 +150,24 @@ def muestra_estatica_desde_mano(
     notas: str = "",
     origen: str = "camara",
     fps: float = FPS_OBJETIVO,
+    categoria: str = CATEGORIA_LETRA,
+    pose: dict[str, Any] | None = None,
+    rostro: dict[str, Any] | None = None,
 ) -> MuestraLSM:
-    """Crea una muestra `tipo=estatico` lista para serializar (pose/rostro = null)."""
+    """Crea una muestra `tipo=estatico` lista para serializar.
+
+    `pose` / `rostro` quedan en null salvo que el gancho de `innova.cuerpo`
+    los haya llenado (vocabulario completo).
+    """
     etiqueta_n = normalizar_etiqueta(etiqueta)
     return MuestraLSM(
         version=VERSION_ESQUEMA,
         etiqueta=etiqueta_n,
+        categoria=normalizar_categoria(categoria),
         tipo="estatico",
         mano=mano_desde_deteccion(mano),
-        pose=None,
-        rostro=None,
+        pose=pose,
+        rostro=rostro,
         secuencia=None,
         metadatos=MetadatosMuestra(
             marca_tiempo=_ahora_iso(),
@@ -170,8 +187,11 @@ def muestra_dinamica_desde_fotogramas(
     consentimiento: bool = True,
     notas: str = "",
     origen: str = "camara",
+    categoria: str = CATEGORIA_LETRA,
+    pose: dict[str, Any] | None = None,
+    rostro: dict[str, Any] | None = None,
 ) -> MuestraLSM:
-    """Crea una muestra `tipo=dinamico` (la secuencia se usará en la fase 2b)."""
+    """Crea una muestra `tipo=dinamico` (secuencia para DTW)."""
     frames = list(fotogramas)
     if not frames:
         raise ErrorEsquema("Una muestra dinámica necesita al menos un fotograma.")
@@ -179,10 +199,11 @@ def muestra_dinamica_desde_fotogramas(
     return MuestraLSM(
         version=VERSION_ESQUEMA,
         etiqueta=normalizar_etiqueta(etiqueta),
+        categoria=normalizar_categoria(categoria),
         tipo="dinamico",
         mano=primera_mano,
-        pose=None,
-        rostro=None,
+        pose=pose,
+        rostro=rostro,
         secuencia=SecuenciaEsquema(fps=float(fps), fotogramas=frames),
         metadatos=MetadatosMuestra(
             marca_tiempo=_ahora_iso(),
@@ -221,6 +242,7 @@ def muestra_desde_dict(datos: dict[str, Any]) -> MuestraLSM:
     return MuestraLSM(
         version=str(datos.get("version", VERSION_ESQUEMA)),
         etiqueta=str(datos["etiqueta"]),
+        categoria=normalizar_categoria(datos.get("categoria")),
         tipo=tipo,
         mano=mano,
         pose=_opcional_cuerpo(datos.get("pose")),
@@ -256,6 +278,11 @@ def validar_muestra(datos: Any) -> list[str]:
     if tipo not in TIPOS_MUESTRA:
         errores.append("tipo debe ser 'estatico' o 'dinamico'.")
 
+    categoria = datos.get("categoria")
+    if categoria not in (None, ""):
+        if str(categoria).strip().lower() not in CATEGORIAS_MUESTRA:
+            errores.append("categoria debe ser 'letra' o 'palabra'.")
+
     errores.extend(_errores_mano(datos.get("mano"), obligatorio=(tipo == "estatico")))
     errores.extend(_errores_cuerpo_opcional(datos.get("pose"), "pose"))
     errores.extend(_errores_cuerpo_opcional(datos.get("rostro"), "rostro"))
@@ -269,6 +296,22 @@ def normalizar_etiqueta(texto: str) -> str:
     if not limpio:
         raise ErrorEsquema("La etiqueta no puede estar vacía.")
     return limpio.upper()
+
+
+def normalizar_categoria(valor: Any) -> str:
+    """`'letra'` | `'palabra'`. Si falta el campo (plantillas viejas), es letra."""
+    if valor is None or valor == "":
+        return CATEGORIA_LETRA
+    texto = str(valor).strip().lower()
+    if texto not in CATEGORIAS_MUESTRA:
+        raise ErrorEsquema("categoria debe ser 'letra' o 'palabra'.")
+    return texto
+
+
+def es_filtro_categoria(valor: Any) -> bool:
+    if valor is None or valor == "":
+        return True
+    return str(valor).strip().lower() in FILTROS_CATEGORIA
 
 
 def _completar_mano(mano: ManoEsquema) -> ManoEsquema:

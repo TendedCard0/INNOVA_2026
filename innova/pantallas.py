@@ -21,10 +21,11 @@ from innova.config import (
     RUTA_PLANTILLAS,
     SUBTITULO,
 )
+from innova.esquema import CATEGORIA_LETRA, CATEGORIA_PALABRA, CATEGORIA_TODAS
 from innova.menu import OPCIONES_MENU, TEXTO_ACERCA
 from innova.overlay import frame_mensaje
 from innova.pipeline import PipelineVision, crear_pipeline
-from innova.plantillas import eliminar_plantilla, inventario_plantillas
+from innova.plantillas import eliminar_plantilla, filtrar_inventario, inventario_plantillas
 from innova.tema import (
     BGR_INDIGO,
     COLOR_ACENTO,
@@ -280,7 +281,7 @@ class PantallaMenu(ctk.CTkFrame):
             aviso.pack(fill="x", padx=36, pady=(4, 8))
             ctk.CTkLabel(
                 aviso,
-                text="Arranque con --demo: «Iniciar reconocimiento» también usará video sintético.",
+                text="Arranque con --demo: Abecedario y Vocabulario usarán video sintético.",
                 text_color=COLOR_NARANJA_HOVER,
                 font=ctk.CTkFont(size=13),
                 wraplength=720,
@@ -292,8 +293,13 @@ class PantallaMenu(ctk.CTkFrame):
         cuerpo.grid_columnconfigure(0, weight=1, uniform="menu")
         cuerpo.grid_columnconfigure(1, weight=1, uniform="menu")
 
+        n = len(OPCIONES_MENU)
         for indice, (destino, etiqueta, descripcion) in enumerate(OPCIONES_MENU):
             fila, col = divmod(indice, 2)
+            span = 1
+            if indice == n - 1 and n % 2 == 1:
+                col = 0
+                span = 2
             cuerpo.grid_rowconfigure(fila, weight=1)
             tarjeta = TarjetaMenu(
                 cuerpo,
@@ -303,10 +309,17 @@ class PantallaMenu(ctk.CTkFrame):
                 indice=indice,
                 on_ir=on_ir,
             )
-            tarjeta.grid(row=fila, column=col, sticky="nsew", padx=10, pady=10)
+            tarjeta.grid(
+                row=fila,
+                column=col,
+                columnspan=span,
+                sticky="nsew",
+                padx=10,
+                pady=8,
+            )
             self._tarjetas.append(tarjeta)
 
-        _pie(self, "Esc o Q para salir    ·    Fase 2b: menú, captura dinámica y DTW")
+        _pie(self, "Esc o Q para salir    ·    Abecedario (letras) y Vocabulario (palabras)")
 
 
 class _PantallaConCamara(ctk.CTkFrame):
@@ -323,6 +336,7 @@ class _PantallaConCamara(ctk.CTkFrame):
         titulo: str,
         subtitulo: str,
         reconocer: bool = True,
+        categoria: str = CATEGORIA_TODAS,
     ) -> None:
         super().__init__(master, fg_color=COLOR_FONDO)
         self._modo_demo = modo_demo
@@ -330,6 +344,7 @@ class _PantallaConCamara(ctk.CTkFrame):
         self._ajustes = ajustes
         self._on_volver = on_volver
         self._reconocer = reconocer
+        self._categoria = categoria
         self._pipeline: Optional[PipelineVision] = None
         self._vivo = True
         self._img_ref: Optional[ctk.CTkImage] = None
@@ -442,6 +457,7 @@ class _PantallaConCamara(ctk.CTkFrame):
                 modo_demo=self._modo_demo,
                 indice_camara=self._indice_camara,
                 ajustes=self._ajustes,
+                categoria=self._categoria,
             )
             self.btn_reintentar.pack_forget()
             self._al_pipeline_listo()
@@ -510,10 +526,23 @@ class PantallaReconocimiento(_PantallaConCamara):
         ajustes: Ajustes,
         on_volver: Callable[[], None],
         aviso_inicial: str = "",
+        categoria: str = CATEGORIA_LETRA,
     ) -> None:
         self._aviso_inicial = aviso_inicial
-        titulo = "Modo demostración" if modo_demo else "Reconocimiento"
-        sub = "Video sintético · sin cámara" if modo_demo else "Estático (pose) y dinámico (DTW)"
+        self._es_vocabulario = categoria == CATEGORIA_PALABRA
+        if self._es_vocabulario:
+            titulo = "Vocabulario · demostración" if modo_demo else "Vocabulario"
+            sub = (
+                "Video sintético · palabras (categoría palabra)"
+                if modo_demo
+                else "Palabras LSM · plantillas de categoría palabra"
+            )
+        elif modo_demo:
+            titulo = "Abecedario · demostración"
+            sub = "Video sintético · letras (categoría letra)"
+        else:
+            titulo = "Abecedario"
+            sub = "Letras LSM · estático (pose) y dinámico (DTW)"
         super().__init__(
             master,
             modo_demo=modo_demo,
@@ -523,6 +552,7 @@ class PantallaReconocimiento(_PantallaConCamara):
             titulo=f"{NOMBRE_PRODUCTO} · {titulo}",
             subtitulo=sub,
             reconocer=True,
+            categoria=categoria,
         )
         if aviso_inicial:
             self._avisar(aviso_inicial, COLOR_AVISO, 4.0)
@@ -678,7 +708,12 @@ class PantallaReconocimiento(_PantallaConCamara):
         self.lbl_plantillas.configure(text=f"Plantillas: {n_e} estáticas · {n_d} dinámicas")
 
     def _escribir_transcripcion(self, lineas: list[str]) -> None:
-        texto = "\n".join(lineas) if lineas else "Aún no hay letras estables."
+        vacio = (
+            "Aún no hay palabras estables."
+            if getattr(self, "_es_vocabulario", False)
+            else "Aún no hay letras estables."
+        )
+        texto = "\n".join(lineas) if lineas else vacio
         caja = self.txt_transcripcion
         caja.configure(state="normal")
         actual = caja.get("1.0", "end-1c")
@@ -706,17 +741,34 @@ class PantallaCaptura(_PantallaConCamara):
             ajustes=ajustes,
             on_volver=on_volver,
             titulo=f"{NOMBRE_PRODUCTO} · Capturar plantillas",
-            subtitulo="Organiza el banco de señas (estática o con movimiento)",
+            subtitulo="Organiza el banco: letra o palabra, estática o con movimiento",
             reconocer=False,
+            categoria=CATEGORIA_TODAS,
         )
 
     def _construir_lateral(self) -> None:
         ctk.CTkLabel(
             self.lateral,
-            text="Tipo de seña",
+            text="Categoría",
             font=ctk.CTkFont(size=13),
             text_color=COLOR_TEXTO_MUDO,
         ).pack(anchor="w", padx=20, pady=(18, 4))
+        self.seg_categoria = ctk.CTkSegmentedButton(
+            self.lateral,
+            values=["Letra", "Palabra"],
+            command=self._on_categoria,
+            selected_color=COLOR_ACENTO,
+            selected_hover_color=COLOR_ACENTO_HOVER,
+        )
+        self.seg_categoria.set("Letra")
+        self.seg_categoria.pack(fill="x", padx=20, pady=(0, 10))
+
+        ctk.CTkLabel(
+            self.lateral,
+            text="Tipo de seña",
+            font=ctk.CTkFont(size=13),
+            text_color=COLOR_TEXTO_MUDO,
+        ).pack(anchor="w", padx=20, pady=(4, 4))
         self.seg_tipo = ctk.CTkSegmentedButton(
             self.lateral,
             values=["Estática", "Dinámica"],
@@ -735,7 +787,7 @@ class PantallaCaptura(_PantallaConCamara):
         ).pack(anchor="w", padx=20, pady=(4, 4))
         self.ent_etiqueta = ctk.CTkEntry(
             self.lateral,
-            placeholder_text="Ej. A, Ñ, J, HOLA",
+            placeholder_text="Ej. A, Ñ, J",
             fg_color=COLOR_CAMPO,
             border_color=COLOR_BORDE,
             text_color=COLOR_TEXTO,
@@ -796,15 +848,39 @@ class PantallaCaptura(_PantallaConCamara):
     def _tipo_dinamico(self) -> bool:
         return (self.seg_tipo.get() or "") == "Dinámica"
 
+    def _categoria_actual(self) -> str:
+        return CATEGORIA_PALABRA if (self.seg_categoria.get() or "") == "Palabra" else CATEGORIA_LETRA
+
+    def _on_categoria(self, valor: str) -> None:
+        if getattr(self, "ent_etiqueta", None) is None:
+            return
+        if valor == "Palabra":
+            self.ent_etiqueta.configure(placeholder_text="Ej. HOLA, GRACIAS")
+        else:
+            self.ent_etiqueta.configure(placeholder_text="Ej. A, Ñ, J")
+        self._on_tipo(self.seg_tipo.get() or "Estática")
+
     def _on_tipo(self, valor: str) -> None:
+        if getattr(self, "btn_guardar", None) is None or getattr(self, "lbl_ayuda", None) is None:
+            return
+        es_palabra = self._categoria_actual() == CATEGORIA_PALABRA
+        sujeto = "la palabra" if es_palabra else "la letra"
         if valor == "Dinámica":
             self.btn_guardar.configure(
                 text="Seña con movimiento",
                 fg_color=COLOR_NARANJA,
                 hover_color=COLOR_NARANJA_HOVER,
             )
+            extra = (
+                " pose y rostro se llenarán cuando los ganchos de cuerpo estén activos."
+                if es_palabra
+                else " pose y rostro quedan en null."
+            )
             self.lbl_ayuda.configure(
-                text="Escribe la letra (J, Ñ, Z…). Clic o Space: graba mientras te mueves; al soltar se guarda. pose y rostro quedan en null."
+                text=(
+                    f"Escribe {sujeto}. Clic o Space: graba mientras te mueves; "
+                    f"al soltar se guarda.{extra}"
+                )
             )
         else:
             self.btn_guardar.configure(
@@ -813,7 +889,10 @@ class PantallaCaptura(_PantallaConCamara):
                 hover_color=COLOR_ACENTO_HOVER,
             )
             self.lbl_ayuda.configure(
-                text="Coloca la seña quieta, escribe la letra y pulsa Guardar. Varias tomas por letra mejoran el matching."
+                text=(
+                    f"Coloca la seña quieta, escribe {sujeto} y pulsa Guardar. "
+                    "Varias tomas mejoran el matching."
+                )
             )
 
     def _guardar_o_alternar(self) -> None:
@@ -836,7 +915,8 @@ class PantallaCaptura(_PantallaConCamara):
         etiqueta = (self.ent_etiqueta.get() or "").strip()
         if not etiqueta:
             self._hold_activo = False
-            self._avisar("Escribe la letra antes de grabar la trayectoria.", COLOR_ERROR)
+            sujeto = "la palabra" if self._categoria_actual() == CATEGORIA_PALABRA else "la letra"
+            self._avisar(f"Escribe {sujeto} antes de grabar la trayectoria.", COLOR_ERROR)
             return
         self._pipeline.iniciar_grabacion()
         self.btn_guardar.configure(text="Grabando… suelta para guardar", fg_color=COLOR_NARANJA_HOVER)
@@ -856,6 +936,7 @@ class PantallaCaptura(_PantallaConCamara):
                 tipo="dinamico",
                 fotogramas=frames,
                 consentimiento=True,
+                categoria=self._categoria_actual(),
             )
         except ValueError as exc:
             self._avisar(str(exc), COLOR_ERROR)
@@ -869,13 +950,19 @@ class PantallaCaptura(_PantallaConCamara):
     def _guardar_estatica(self) -> None:
         etiqueta = (self.ent_etiqueta.get() or "").strip()
         if not etiqueta:
-            self._avisar("Escribe la letra o palabra de la seña antes de guardar.", COLOR_ERROR)
+            sujeto = "la palabra" if self._categoria_actual() == CATEGORIA_PALABRA else "la letra"
+            self._avisar(f"Escribe {sujeto} de la seña antes de guardar.", COLOR_ERROR)
             return
         if self._pipeline is None:
             self._avisar("No hay cámara ni modo demostración activo.", COLOR_ERROR)
             return
         try:
-            ruta = self._pipeline.guardar_plantilla(etiqueta, consentimiento=True, tipo="estatico")
+            ruta = self._pipeline.guardar_plantilla(
+                etiqueta,
+                consentimiento=True,
+                tipo="estatico",
+                categoria=self._categoria_actual(),
+            )
         except ValueError as exc:
             self._avisar(str(exc), COLOR_ERROR)
             return
@@ -931,9 +1018,26 @@ class PantallaBiblioteca(ctk.CTkFrame):
         _encabezado(
             self,
             f"{NOMBRE_PRODUCTO} · Biblioteca de señas",
-            "Plantillas estáticas y dinámicas guardadas en este equipo",
+            "Plantillas de letra y de palabra guardadas en este equipo",
             on_volver,
         )
+        filtros = ctk.CTkFrame(self, fg_color="transparent")
+        filtros.pack(fill="x", padx=28, pady=(0, 6))
+        ctk.CTkLabel(
+            filtros,
+            text="Filtrar",
+            text_color=COLOR_TEXTO_MUDO,
+            font=ctk.CTkFont(size=13),
+        ).pack(side="left", padx=(0, 10))
+        self.seg_filtro = ctk.CTkSegmentedButton(
+            filtros,
+            values=["Letra", "Palabra", "Todas"],
+            command=lambda _v: self._recargar(),
+            selected_color=COLOR_ACENTO,
+            selected_hover_color=COLOR_ACENTO_HOVER,
+        )
+        self.seg_filtro.set("Todas")
+        self.seg_filtro.pack(side="left")
         self.lbl_resumen = ctk.CTkLabel(
             self,
             text="",
@@ -949,36 +1053,55 @@ class PantallaBiblioteca(ctk.CTkFrame):
             border_color=COLOR_BORDE,
         )
         self.scroll.pack(fill="both", expand=True, padx=24, pady=8)
-        _pie(self, "← Menú    ·    Esc o Q salen    ·    Esto organiza el banco; el uso diario es «Iniciar reconocimiento»")
+        _pie(self, "← Menú    ·    Esc o Q salen    ·    El uso diario es Abecedario o Vocabulario")
         self._recargar()
 
     def cerrar_pantalla(self) -> None:
         self.destroy()
 
+    def _filtro_categoria(self) -> str:
+        mapa = {"Letra": CATEGORIA_LETRA, "Palabra": CATEGORIA_PALABRA, "Todas": CATEGORIA_TODAS}
+        return mapa.get(self.seg_filtro.get() or "Todas", CATEGORIA_TODAS)
+
     def _recargar(self) -> None:
         for hijo in self.scroll.winfo_children():
             hijo.destroy()
         items, errores = inventario_plantillas(self._ruta)
-        n_e = sum(1 for i in items if i.muestra.tipo == "estatico")
-        n_d = sum(1 for i in items if i.muestra.tipo == "dinamico")
+        visibles = filtrar_inventario(items, self._filtro_categoria())
+        n_e = sum(1 for i in visibles if i.muestra.tipo == "estatico")
+        n_d = sum(1 for i in visibles if i.muestra.tipo == "dinamico")
+        n_letra = sum(1 for i in items if i.muestra.categoria == CATEGORIA_LETRA)
+        n_palabra = sum(1 for i in items if i.muestra.categoria == CATEGORIA_PALABRA)
         extra = f"  ·  {len(errores)} archivo(s) ilegible(s)" if errores else ""
         self.lbl_resumen.configure(
-            text=f"{len(items)} plantilla(s): {n_e} estáticas · {n_d} dinámicas{extra}"
+            text=(
+                f"{len(visibles)} visible(s): {n_e} estáticas · {n_d} dinámicas"
+                f"  ·  banco: {n_letra} letra(s) · {n_palabra} palabra(s){extra}"
+            )
         )
-        if not items:
+        if not visibles:
+            if self._filtro_categoria() == CATEGORIA_PALABRA:
+                vacio = "Aún no hay plantillas de palabra. Ábrelo en «Capturar plantillas» y elige Palabra."
+            elif self._filtro_categoria() == CATEGORIA_LETRA:
+                vacio = "Aún no hay plantillas de letra. Ábrelo en «Capturar plantillas» y elige Letra."
+            else:
+                vacio = "Aún no hay plantillas. Ábrelo en «Capturar plantillas»."
             ctk.CTkLabel(
                 self.scroll,
-                text="Aún no hay plantillas. Ábrelo en «Capturar plantillas».",
+                text=vacio,
                 text_color=COLOR_TEXTO_MUDO,
                 font=ctk.CTkFont(size=14),
+                wraplength=720,
+                justify="left",
             ).pack(anchor="w", padx=12, pady=16)
             return
-        for item in items:
+        for item in visibles:
             self._fila(item)
 
     def _fila(self, item) -> None:
         muestra = item.muestra
         tipo = "estática" if muestra.tipo == "estatico" else "dinámica"
+        cat = "letra" if muestra.categoria == CATEGORIA_LETRA else "palabra"
         n_frames = 0
         if muestra.secuencia is not None:
             n_frames = len(muestra.secuencia.fotogramas)
@@ -998,11 +1121,16 @@ class PantallaBiblioteca(ctk.CTkFrame):
             text=muestra.etiqueta,
             font=ctk.CTkFont(size=20, weight="bold"),
             text_color=COLOR_ACENTO,
-            width=80,
+            width=140,
         ).pack(side="left", padx=(12, 8), pady=10)
         info = ctk.CTkFrame(fila, fg_color="transparent")
         info.pack(side="left", fill="x", expand=True)
-        ctk.CTkLabel(info, text=tipo, text_color=COLOR_TEXTO, font=ctk.CTkFont(size=14)).pack(anchor="w")
+        ctk.CTkLabel(
+            info,
+            text=f"{cat} · {tipo}",
+            text_color=COLOR_TEXTO,
+            font=ctk.CTkFont(size=14),
+        ).pack(anchor="w")
         ctk.CTkLabel(info, text=detalle, text_color=COLOR_TEXTO_MUDO, font=ctk.CTkFont(size=12)).pack(anchor="w")
         ctk.CTkButton(
             fila,
@@ -1012,7 +1140,7 @@ class PantallaBiblioteca(ctk.CTkFrame):
             hover_color=COLOR_ACENTO_HOVER,
             text_color=COLOR_TEXTO_INVERSO,
             corner_radius=10,
-            command=lambda m=muestra: self._on_probar(m.etiqueta, m.tipo),
+            command=lambda m=muestra: self._on_probar(m.etiqueta, m.tipo, m.categoria),
         ).pack(side="right", padx=(4, 12), pady=10)
         ctk.CTkButton(
             fila,
@@ -1145,7 +1273,7 @@ class PantallaConfiguracion(ctk.CTkFrame):
         guardar_ajustes(aj)
         self._on_guardar(aj)
         self.lbl_estado.configure(
-            text="Ajustes guardados. Se aplican al volver a «Iniciar reconocimiento».",
+            text="Ajustes guardados. Se aplican al volver a Abecedario o Vocabulario.",
             text_color=COLOR_ACENTO,
         )
 

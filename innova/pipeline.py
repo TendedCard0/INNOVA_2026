@@ -19,8 +19,17 @@ from innova.config import (
     MAX_LINEAS_TRANSCRIPCION,
     MIN_FOTOGRAMAS_DINAMICO,
 )
+from innova.cuerpo import anotar_cuerpo
 from innova.detector import DetectorManos, DetectorMediaPipe, DetectorSimulado, ManoDetectada
-from innova.esquema import FotogramaSecuencia, mano_desde_deteccion, muestra_dinamica_desde_fotogramas, muestra_estatica_desde_mano
+from innova.esquema import (
+    CATEGORIA_LETRA,
+    CATEGORIA_TODAS,
+    FotogramaSecuencia,
+    mano_desde_deteccion,
+    muestra_dinamica_desde_fotogramas,
+    muestra_estatica_desde_mano,
+    normalizar_categoria,
+)
 from innova.overlay import dibujar_manos, poner_banner
 from innova.reconocimiento import (
     ReconocedorEstatico,
@@ -139,7 +148,7 @@ class PipelineVision:
 
         manos = self.detector.detectar(frame)
         if self._grabacion is not None:
-            self._anotar_grabacion(manos)
+            self._anotar_grabacion(manos, frame)
 
         if reconocer:
             resultado = self.reconocedor.predecir(frame, manos)
@@ -191,9 +200,11 @@ class PipelineVision:
         consentimiento: bool = True,
         tipo: str = "estatico",
         fotogramas: list[FotogramaSecuencia] | None = None,
+        categoria: str = CATEGORIA_LETRA,
     ) -> Path:
         """Guarda la mano actual (estático) o una secuencia (dinámico)."""
         origen = "demo" if isinstance(self.fuente, FuenteDemo) else "camara"
+        cat = normalizar_categoria(categoria)
         if tipo == "dinamico":
             frames = fotogramas if fotogramas is not None else list(self._grabacion or [])
             return self._guardar_dinamica(
@@ -202,9 +213,11 @@ class PipelineVision:
                 notas=notas,
                 consentimiento=consentimiento,
                 origen=origen,
+                categoria=cat,
             )
         if self._ultimo is None or not self._ultimo.manos:
             raise ValueError("No hay una mano detectada para guardar. Coloca la seña frente a la cámara.")
+        pose, rostro = anotar_cuerpo(self._ultimo.imagen)
         muestra = muestra_estatica_desde_mano(
             self._ultimo.manos[0],
             etiqueta,
@@ -212,6 +225,9 @@ class PipelineVision:
             notas=notas,
             origen=origen,
             fps=float(FPS_OBJETIVO),
+            categoria=cat,
+            pose=pose,
+            rostro=rostro,
         )
         return self._registrar(muestra)
 
@@ -223,6 +239,7 @@ class PipelineVision:
         notas: str,
         consentimiento: bool,
         origen: str,
+        categoria: str = CATEGORIA_LETRA,
     ) -> Path:
         con_mano = [f for f in fotogramas if f.mano is not None]
         if len(con_mano) < MIN_FOTOGRAMAS_DINAMICO:
@@ -238,6 +255,7 @@ class PipelineVision:
             consentimiento=consentimiento,
             notas=notas or "Captura dinámica (DTW)",
             origen=origen,
+            categoria=categoria,
         )
         return self._registrar(muestra)
 
@@ -247,7 +265,7 @@ class PipelineVision:
             return reconocedor.registrar_plantilla(muestra)
         raise ValueError("Este reconocedor no admite guardar plantillas.")
 
-    def _anotar_grabacion(self, manos: list[ManoDetectada]) -> None:
+    def _anotar_grabacion(self, manos: list[ManoDetectada], frame_bgr: np.ndarray) -> None:
         assert self._grabacion is not None
         if not manos:
             return
@@ -255,12 +273,13 @@ class PipelineVision:
             esquema = mano_desde_deteccion(manos[0])
         except Exception:  # noqa: BLE001
             return
+        pose, rostro = anotar_cuerpo(frame_bgr)
         self._grabacion.append(
             FotogramaSecuencia(
                 t=time.monotonic() - self._t0_grabacion,
                 mano=esquema,
-                pose=None,
-                rostro=None,
+                pose=pose,
+                rostro=rostro,
             )
         )
 
@@ -275,10 +294,11 @@ def crear_pipeline(
     indice_camara: int = 0,
     ruta_plantillas: str | Path | None = None,
     ajustes: Ajustes | None = None,
+    categoria: str = CATEGORIA_TODAS,
 ) -> PipelineVision:
-    """Construye el pipeline (cámara real o demostración) con el reconocedor 2b."""
+    """Construye el pipeline (cámara real o demostración) con el reconocedor."""
     aj = ajustes if ajustes is not None else cargar_ajustes()
-    reconocedor = crear_reconocedor(ruta_plantillas, ajustes=aj)
+    reconocedor = crear_reconocedor(ruta_plantillas, ajustes=aj, categoria=categoria)
     if modo_demo:
         return PipelineVision(FuenteDemo(), DetectorSimulado(), reconocedor)
     fuente: FuenteVideo = Camara(indice_camara)

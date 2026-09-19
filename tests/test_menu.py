@@ -8,11 +8,14 @@ from pathlib import Path
 
 from innova.ajustes import Ajustes, cargar_ajustes, guardar_ajustes
 from innova.menu import (
+    DESTINO_ABECEDARIO,
     DESTINO_CAPTURA,
     DESTINO_MENU,
+    DESTINO_VOCABULARIO,
     Navegador,
     OPCIONES_MENU,
     TEXTO_ACERCA,
+    categoria_de_destino,
     etiquetas_menu,
 )
 
@@ -52,11 +55,12 @@ class TestAjustes(unittest.TestCase):
 
 
 class TestMenuNavegacion(unittest.TestCase):
-    def test_seis_opciones_en_espanol(self) -> None:
+    def test_siete_opciones_abecedario_y_vocabulario(self) -> None:
         self.assertEqual(
             etiquetas_menu(),
             [
-                "Iniciar reconocimiento",
+                "Abecedario",
+                "Vocabulario",
                 "Capturar plantillas",
                 "Biblioteca de señas",
                 "Configuración",
@@ -64,7 +68,16 @@ class TestMenuNavegacion(unittest.TestCase):
                 "Acerca de Mamatlatolli",
             ],
         )
-        self.assertEqual(len(OPCIONES_MENU), 6)
+        self.assertEqual(len(OPCIONES_MENU), 7)
+        self.assertNotIn("Iniciar reconocimiento", etiquetas_menu())
+        destinos = [d for d, _e, _s in OPCIONES_MENU]
+        self.assertEqual(destinos[0], DESTINO_ABECEDARIO)
+        self.assertEqual(destinos[1], DESTINO_VOCABULARIO)
+
+    def test_categoria_de_destino(self) -> None:
+        self.assertEqual(categoria_de_destino(DESTINO_ABECEDARIO), "letra")
+        self.assertEqual(categoria_de_destino(DESTINO_VOCABULARIO), "palabra")
+        self.assertEqual(categoria_de_destino("demo"), "letra")
 
     def test_ir_y_volver_al_menu(self) -> None:
         nav = Navegador()
@@ -83,14 +96,25 @@ class TestMenuNavegacion(unittest.TestCase):
     def test_acerca_nombra_mamatlatolli_y_fases(self) -> None:
         self.assertIn("Mamatlatolli", TEXTO_ACERCA)
         self.assertIn("2b", TEXTO_ACERCA)
+        self.assertIn("Abecedario", TEXTO_ACERCA)
+        self.assertIn("Vocabulario", TEXTO_ACERCA)
         self.assertIn("DTW", TEXTO_ACERCA)
         self.assertIn("Lengua de Señas Mexicana", TEXTO_ACERCA)
+        self.assertNotIn("Iniciar reconocimiento", TEXTO_ACERCA)
 
     def test_demo_no_usa_camara(self) -> None:
         nav = Navegador()
         nav.ir("demo")
         self.assertTrue(nav.usa_demostracion())
         self.assertTrue(nav.usa_video())
+
+    def test_abecedario_y_vocabulario_usan_video(self) -> None:
+        nav = Navegador()
+        nav.ir(DESTINO_ABECEDARIO)
+        self.assertTrue(nav.usa_video())
+        nav.ir(DESTINO_VOCABULARIO)
+        self.assertTrue(nav.usa_video())
+        self.assertFalse(nav.usa_demostracion())
 
 
 if __name__ == "__main__":
