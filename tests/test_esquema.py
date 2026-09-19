@@ -38,6 +38,7 @@ class TestEsquemaEstatico(unittest.TestCase):
         bruto = original.a_dict()
         self.assertEqual(bruto["version"], VERSION_ESQUEMA)
         self.assertEqual(bruto["etiqueta"], "A")
+        self.assertEqual(bruto["categoria"], "letra")
         self.assertEqual(bruto["tipo"], "estatico")
         self.assertIsNone(bruto["pose"])
         self.assertIsNone(bruto["rostro"])
@@ -77,6 +78,7 @@ class TestEsquemaDinamico(unittest.TestCase):
         )
         bruto = muestra.a_dict()
         self.assertEqual(bruto["tipo"], "dinamico")
+        self.assertEqual(bruto["categoria"], "letra")
         self.assertIsNone(bruto["pose"])
         self.assertIsNone(bruto["rostro"])
         self.assertEqual(len(bruto["secuencia"]["fotogramas"]), 2)
@@ -150,6 +152,47 @@ class TestValidacion(unittest.TestCase):
             }
         )
         self.assertTrue(any("secuencia" in e for e in errores))
+
+
+class TestCategoria(unittest.TestCase):
+    def test_sin_campo_migra_a_letra(self) -> None:
+        bruto = muestra_estatica_desde_mano(_mano(), "A").a_dict()
+        del bruto["categoria"]
+        self.assertEqual(validar_muestra(bruto), [])
+        recuperada = muestra_desde_dict(bruto)
+        self.assertEqual(recuperada.categoria, "letra")
+        self.assertEqual(recuperada.a_dict()["categoria"], "letra")
+
+    def test_palabra_se_conserva(self) -> None:
+        muestra = muestra_estatica_desde_mano(_mano(), "hola", categoria="palabra")
+        bruto = muestra.a_dict()
+        self.assertEqual(bruto["categoria"], "palabra")
+        self.assertEqual(bruto["etiqueta"], "HOLA")
+        self.assertEqual(validar_muestra(bruto), [])
+        self.assertEqual(muestra_desde_dict(bruto).categoria, "palabra")
+
+    def test_rechaza_categoria_invalida(self) -> None:
+        bruto = muestra_estatica_desde_mano(_mano(), "A").a_dict()
+        bruto["categoria"] = "frase"
+        errores = validar_muestra(bruto)
+        self.assertTrue(any("categoria" in e for e in errores))
+        with self.assertRaises(ErrorEsquema):
+            muestra_desde_dict(bruto)
+
+    def test_dinamica_palabra_con_pose_reservada(self) -> None:
+        mano = muestra_estatica_desde_mano(_mano(), "HOLA").mano
+        muestra = muestra_dinamica_desde_fotogramas(
+            "hola",
+            [
+                FotogramaSecuencia(t=0.0, mano=mano, pose=None, rostro=None),
+                FotogramaSecuencia(t=0.04, mano=mano, pose=None, rostro=None),
+            ],
+            categoria="palabra",
+        )
+        bruto = muestra.a_dict()
+        self.assertEqual(bruto["categoria"], "palabra")
+        self.assertIsNone(bruto["pose"])
+        self.assertIsNone(bruto["rostro"])
 
 
 if __name__ == "__main__":
