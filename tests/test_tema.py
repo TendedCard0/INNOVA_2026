@@ -89,9 +89,19 @@ class TestLogoEIconos(unittest.TestCase):
             self.assertEqual(icono.size, (48, 48))
 
 
-@unittest.skipUnless(os.environ.get("DISPLAY"), "requiere un display gráfico")
+def _tk_disponible() -> bool:
+    if not os.environ.get("DISPLAY"):
+        return False
+    try:
+        import tkinter  # noqa: F401
+    except ImportError:
+        return False
+    return True
+
+
+@unittest.skipUnless(_tk_disponible(), "requiere display gráfico y tkinter")
 class TestPantallaMenuTk(unittest.TestCase):
-    def test_menu_construye_seis_tarjetas_y_navega(self) -> None:
+    def test_menu_construye_siete_tarjetas_y_navega(self) -> None:
         import customtkinter as ctk
 
         from innova.pantallas import PantallaMenu
@@ -103,12 +113,16 @@ class TestPantallaMenuTk(unittest.TestCase):
         destinos: list[str] = []
         try:
             pantalla = PantallaMenu(raiz, on_ir=destinos.append)
-            self.assertEqual(len(pantalla._tarjetas), 6)
-            etiquetas = [OPCIONES_MENU[i][1] for i in range(6)]
-            self.assertEqual(etiquetas[0], "Iniciar reconocimiento")
+            self.assertEqual(len(pantalla._tarjetas), 7)
+            etiquetas = [OPCIONES_MENU[i][1] for i in range(7)]
+            self.assertEqual(etiquetas[0], "Abecedario")
+            self.assertEqual(etiquetas[1], "Vocabulario")
+            self.assertNotIn("Iniciar reconocimiento", etiquetas)
             pantalla._tarjetas[0]._on_ir(pantalla._tarjetas[0]._destino)
-            self.assertEqual(destinos, ["reconocimiento"])
-            pantalla._tarjetas[5]._on_ir(pantalla._tarjetas[5]._destino)
+            self.assertEqual(destinos, ["abecedario"])
+            pantalla._tarjetas[1]._on_ir(pantalla._tarjetas[1]._destino)
+            self.assertEqual(destinos[-1], "vocabulario")
+            pantalla._tarjetas[6]._on_ir(pantalla._tarjetas[6]._destino)
             self.assertEqual(destinos[-1], "acerca")
         finally:
             raiz.destroy()
@@ -329,7 +343,9 @@ class TestTemaEnVivo(unittest.TestCase):
                 self.assertEqual(ajustes.cargar_ajustes(ruta).tema, "claro")
                 raiz.mostrar_menu()
                 raiz.update()
-                self.assertEqual(len(raiz._pantalla._tarjetas), 6)
+                self.assertEqual(len(raiz._pantalla._tarjetas), 7)
+                self.assertIsNotNone(_widget_con_texto(raiz, "Abecedario"))
+                self.assertIsNotNone(_widget_con_texto(raiz, "Vocabulario"))
                 menu_oscuro = _widget_con_texto(raiz, "Modo oscuro")
                 self.assertIsNotNone(menu_oscuro)
                 assert menu_oscuro is not None

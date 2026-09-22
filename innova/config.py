@@ -25,7 +25,7 @@ from innova.tema import (  # noqa: F401 — reexportados para overlay y código 
 # nombre del software es Mamatlatolli.
 NOMBRE_PRODUCTO = "Mamatlatolli"
 TITULO_VENTANA = "Mamatlatolli — Reconocimiento de LSM"
-SUBTITULO = "Lengua de Señas Mexicana · fase 2b (menú y señas dinámicas)"
+SUBTITULO = "Lengua de Señas Mexicana · Abecedario y Vocabulario"
 
 ANCHO_VIDEO = 640
 ALTO_VIDEO = 480

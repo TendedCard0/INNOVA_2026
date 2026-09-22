@@ -13,6 +13,7 @@ from innova.config import ETIQUETA_DETECTANDO, ETIQUETA_SIN_DETECCION
 from innova.detector import ManoDetectada, Punto
 from innova.esquema import FotogramaSecuencia, muestra_dinamica_desde_fotogramas, muestra_estatica_desde_mano
 from innova.estabilidad import FiltroEstabilidad
+from innova.plantillas import guardar_plantilla
 from innova.reconocimiento import ReconocedorEstatico, crear_reconocedor
 
 
@@ -69,6 +70,38 @@ class TestReconocedorEstatico(unittest.TestCase):
         self.assertEqual(vistos[-1].etiqueta, "A")
         self.assertEqual(vistos[-1].etiqueta_cruda, "A")
         self.assertTrue(any(v.etiqueta == ETIQUETA_DETECTANDO for v in vistos[:-1]))
+
+    def test_vocabulario_sin_plantillas_mensaje_en_espanol(self) -> None:
+        rec = ReconocedorEstatico(self.ruta, categoria="palabra")
+        r = rec.predecir(self.frame, [_mano_abierta()])
+        self.assertEqual(r.etiqueta, ETIQUETA_DETECTANDO)
+        self.assertIn("vocabulario", r.mensaje.lower())
+        self.assertIn("palabra", r.mensaje.lower())
+
+    def test_aisla_letra_y_palabra(self) -> None:
+        guardar_plantilla(
+            muestra_estatica_desde_mano(_mano_abierta(), "A", origen="test", categoria="letra"),
+            self.ruta,
+        )
+        guardar_plantilla(
+            muestra_estatica_desde_mano(_mano_abierta(), "HOLA", origen="test", categoria="palabra"),
+            self.ruta,
+        )
+        rec_letra = ReconocedorEstatico(self.ruta, categoria="letra")
+        rec_palabra = ReconocedorEstatico(self.ruta, categoria="palabra")
+        self.assertEqual([e for e, _v in rec_letra._vectores], ["A"])
+        self.assertEqual([e for e, _v in rec_palabra._vectores], ["HOLA"])
+        self.assertEqual(rec_letra.n_estaticas, 1)
+        self.assertEqual(rec_palabra.n_estaticas, 1)
+        cruda_l, _, _ = rec_letra.estimar_crudo([_mano_abierta()])
+        cruda_p, _, _ = rec_palabra.estimar_crudo([_mano_abierta()])
+        self.assertEqual(cruda_l, "A")
+        self.assertEqual(cruda_p, "HOLA")
+
+    def test_fabrica_respeta_categoria(self) -> None:
+        creado = crear_reconocedor(self.ruta, categoria="palabra")
+        self.assertIsInstance(creado, ReconocedorEstatico)
+        self.assertEqual(creado.categoria, "palabra")
 
     def test_predecir_dinamico_sin_plantillas(self) -> None:
         seq = muestra_dinamica_desde_fotogramas(

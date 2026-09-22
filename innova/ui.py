@@ -9,15 +9,18 @@ import customtkinter as ctk
 from innova import tema
 from innova.ajustes import Ajustes, cargar_ajustes, guardar_tema
 from innova.config import TITULO_VENTANA
+from innova.esquema import CATEGORIA_LETRA, CATEGORIA_PALABRA
 from innova.menu import (
+    DESTINO_ABECEDARIO,
     DESTINO_ACERCA,
     DESTINO_BIBLIOTECA,
     DESTINO_CAPTURA,
     DESTINO_CONFIGURACION,
     DESTINO_DEMO,
     DESTINO_MENU,
-    DESTINO_RECONOCIMIENTO,
+    DESTINO_VOCABULARIO,
     Navegador,
+    categoria_de_destino,
 )
 from innova.pantallas import (
     PantallaAcercaDe,
@@ -44,8 +47,8 @@ class VentanaMamatlatolli(ctk.CTk):
         self._vista_config: Ajustes | None = None
 
         self.title(TITULO_VENTANA)
-        self.geometry("1040x820")
-        self.minsize(920, 700)
+        self.geometry("1040x900")
+        self.minsize(920, 720)
         self.configure(fg_color=tema.COLOR_FONDO)
         self.protocol("WM_DELETE_WINDOW", self._cerrar)
         self.bind_all("<Escape>", lambda _e: self._cerrar())
@@ -60,7 +63,7 @@ class VentanaMamatlatolli(ctk.CTk):
 
     def mostrar_menu(self) -> None:
         self._navegador.volver()
-        self.geometry("1040x820")
+        self.geometry("1040x900")
         self._cambiar(
             PantallaMenu(
                 self._contenedor,
@@ -75,14 +78,17 @@ class VentanaMamatlatolli(ctk.CTk):
         if destino == DESTINO_MENU:
             self.mostrar_menu()
             return
-        if destino == DESTINO_RECONOCIMIENTO:
-            self._abrir_reconocimiento(demo=self._modo_demo_cli)
+        if destino in {DESTINO_ABECEDARIO, DESTINO_VOCABULARIO}:
+            self._abrir_reconocimiento(
+                demo=self._modo_demo_cli,
+                categoria=categoria_de_destino(destino),
+            )
             return
         if destino == DESTINO_DEMO:
-            self._abrir_reconocimiento(demo=True)
+            self._abrir_reconocimiento(demo=True, categoria=CATEGORIA_LETRA)
             return
         if destino == DESTINO_CAPTURA:
-            self.geometry("1120x760")
+            self.geometry("1120x780")
             self._cambiar(
                 PantallaCaptura(
                     self._contenedor,
@@ -94,7 +100,7 @@ class VentanaMamatlatolli(ctk.CTk):
             )
             return
         if destino == DESTINO_BIBLIOTECA:
-            self.geometry("1040x760")
+            self.geometry("1040x780")
             self._cambiar(
                 PantallaBiblioteca(
                     self._contenedor,
@@ -121,7 +127,7 @@ class VentanaMamatlatolli(ctk.CTk):
             return
         self.mostrar_menu()
 
-    def _abrir_reconocimiento(self, *, demo: bool) -> None:
+    def _abrir_reconocimiento(self, *, demo: bool, categoria: str) -> None:
         self.geometry("1120x760")
         aviso = self._aviso_reconocimiento
         self._aviso_reconocimiento = ""
@@ -133,16 +139,19 @@ class VentanaMamatlatolli(ctk.CTk):
                 ajustes=self._ajustes,
                 on_volver=self.mostrar_menu,
                 aviso_inicial=aviso,
+                categoria=categoria,
             )
         )
 
-    def _probar_plantilla(self, etiqueta: str, tipo: str) -> None:
+    def _probar_plantilla(self, etiqueta: str, tipo: str, categoria: str = CATEGORIA_LETRA) -> None:
         clase = "dinámica" if tipo == "dinamico" else "estática"
+        modo = "Vocabulario" if categoria == CATEGORIA_PALABRA else "Abecedario"
         self._aviso_reconocimiento = (
-            f"Prueba la seña «{etiqueta}» ({clase}). "
+            f"Prueba la seña «{etiqueta}» ({clase}, {categoria}) en {modo}. "
             "Si es dinámica, muévete o usa «Seña con movimiento»."
         )
-        self.ir_a(DESTINO_RECONOCIMIENTO)
+        destino = DESTINO_VOCABULARIO if categoria == CATEGORIA_PALABRA else DESTINO_ABECEDARIO
+        self.ir_a(destino)
 
     def _guardar_ajustes(self, ajustes: Ajustes) -> None:
         self._ajustes = ajustes

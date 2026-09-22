@@ -3,12 +3,21 @@
 Las plantillas y las futuras secuencias se guardan como JSON versionado
 (`version: "1.0"`). Un mismo formato sirve para:
 
-- una **muestra estática** (una pose, fase 2a);
-- una **secuencia dinámica** (varios fotogramas, fase 2b / DTW).
+- una **muestra estática** (una pose);
+- una **secuencia dinámica** (varios fotogramas / DTW).
+
+El campo **`categoria`** separa el banco:
+
+- `"letra"` — Abecedario (A, Ñ, J…);
+- `"palabra"` — Vocabulario (HOLA, GRACIAS…).
+
+Si un JSON antiguo **no trae** `categoria`, Mamatlatolli lo lee como
+`"letra"` para no romper plantillas ya capturadas. Al volver a guardar
+siempre se escribe el campo.
 
 Los campos `pose` y `rostro` ya existen para el vocabulario completo
-(cuerpo y cara). En las fases 2a/2b **siempre van en `null`**: solo corre el
-detector de manos.
+(cuerpo y cara). Hoy van en `null`: solo corre el detector de manos.
+Los ganchos para llenarlos están en `innova/cuerpo.py` (ver más abajo).
 
 Los archivos viven en `datos/plantillas/` (también se aceptan subcarpetas)
 y se leen al arrancar el reconocedor. La validación está en `innova/esquema.py`
@@ -20,10 +29,11 @@ y se leen al arrancar el reconocedor. La validación está en `innova/esquema.py
 | --- | --- | --- |
 | `version` | string | Hoy `"1.0"`. Si cambia el formato, se sube el número. |
 | `etiqueta` | string | Letra o glosa, en mayúsculas (`A`, `Ñ`, `HOLA`). |
+| `categoria` | `"letra"` \| `"palabra"` | Si falta, se asume `"letra"`. |
 | `tipo` | `"estatico"` \| `"dinamico"` | Estático = un fotograma; dinámico = trayectoria. |
 | `mano` | objeto o `null` | Obligatorio si `tipo` es `estatico`. |
-| `pose` | objeto o `null` | Reservado (MediaPipe Pose, 33 puntos). Fases 2a/2b: `null`. |
-| `rostro` | objeto o `null` | Reservado (malla facial). Fases 2a/2b: `null`. |
+| `pose` | objeto o `null` | Reservado (MediaPipe Pose, 33 puntos). Hoy: `null`. |
+| `rostro` | objeto o `null` | Reservado (malla facial, ~478 puntos). Hoy: `null`. |
 | `secuencia` | objeto o `null` | Obligatorio si `tipo` es `dinamico`. |
 | `metadatos` | objeto | Tiempo, fps, notas, consentimiento, origen. |
 
@@ -39,7 +49,7 @@ y se leen al arrancar el reconocedor. La validación está en `innova/esquema.py
 Si al leer un archivo faltan `landmarks_normalizados` o `caracteristicas`,
 se recalculan a partir de `landmarks`.
 
-### `secuencia` (fase 2b / DTW)
+### `secuencia` (DTW)
 
 ```json
 {
@@ -57,13 +67,32 @@ se recalculan a partir de `landmarks`.
 
 `t` es el tiempo en segundos desde el inicio del gesto. El reconocedor
 estático ignora este bloque; `predecir_dinamico()` compara `fotogramas`
-con Dynamic Time Warping contra las plantillas `tipo: dinamico`.
+con Dynamic Time Warping contra las plantillas `tipo: dinamico` **de la
+misma categoría** (letra o palabra).
 
 ### `pose` y `rostro` (vocabulario completo)
 
 Cuando existan, serán objetos con al menos `"landmarks": [ [x, y, z], ... ]`.
-Hoy el validador acepta `null` o ese objeto, y el pipeline **no** llena
-ni uno ni otro.
+Hoy el validador acepta `null` o ese objeto.
+
+**Ganchos (sin reescribir la UI):**
+
+| Pieza | Rol |
+| --- | --- |
+| `innova/cuerpo.py` | `POSE_ACTIVA` / `ROSTRO_ACTIVO`, `extraer_pose()`, `extraer_rostro()`, `anotar_cuerpo()`. |
+| `innova/pipeline.py` | Al capturar, llama `anotar_cuerpo(frame)` y guarda el resultado. |
+| `innova/reconocimiento.py` | Al grabar una trayectoria en vivo, el fotograma también pasa por el gancho. |
+
+Hoy esas funciones **devuelven `None`**. Para activarlas más adelante:
+
+1. Implementa el detector MediaPipe Pose (33 landmarks) y/o Face Mesh.
+2. Pon `POSE_ACTIVA` y/o `ROSTRO_ACTIVO` en `True`.
+3. Llena el dict `{ "landmarks": [...] }` en `extraer_pose` / `extraer_rostro`.
+
+Abecedario y Vocabulario no cambian de pantalla: el JSON ya tiene el hueco.
+
+Mientras los ganchos estén apagados, **Vocabulario reconoce solo con la
+mano**, igual que Abecedario, pero contra plantillas `categoria: "palabra"`.
 
 ### `metadatos`
 
@@ -75,12 +104,13 @@ ni uno ni otro.
 | `consentimiento` | boolean | Debe ser `true` si la seña es de una persona. |
 | `origen` | string | `"camara"`, `"demo"` u otro. |
 
-## Ejemplo estático (fase 2a)
+## Ejemplo estático (letra)
 
 ```json
 {
   "version": "1.0",
   "etiqueta": "A",
+  "categoria": "letra",
   "tipo": "estatico",
   "mano": {
     "lateralidad": "derecha",
@@ -104,12 +134,13 @@ ni uno ni otro.
 (El ejemplo recorta las listas; un archivo real lleva 21 puntos y 78
 características.)
 
-## Ejemplo dinámico (fase 2b)
+## Ejemplo dinámico (palabra)
 
 ```json
 {
   "version": "1.0",
-  "etiqueta": "J",
+  "etiqueta": "HOLA",
+  "categoria": "palabra",
   "tipo": "dinamico",
   "mano": null,
   "pose": null,
