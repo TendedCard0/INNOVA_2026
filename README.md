@@ -4,7 +4,7 @@ Prototipo de escritorio para **reconocer Lengua de Señas Mexicana (LSM)** a par
 
 **Mamatlatolli** abre un menú principal de tarjetas: reconocimiento en vivo (letras estáticas y con movimiento), captura de plantillas, biblioteca, configuración y modo demostración.
 
-El menú usa un fondo claro y acentos tríadicos (**naranja**, **lima** e **índigo**). Arriba va el logo: si existe `assets/logo.png` se muestra; si no, un marco placeholder (el isotipo aún está en desarrollo).
+El menú usa acentos tríadicos (**naranja**, **lima** e **índigo**) sobre fondo claro u oscuro. Arriba va el logo: si existe `assets/logo.png` se muestra; si no, un marco placeholder (el isotipo aún está en desarrollo).
 
 > Proyecto estudiantil — Instituto Tecnológico de San Juan del Río.
 
@@ -126,6 +126,12 @@ Recomendaciones:
 | Botón *Reintentar cámara* | Volver a buscar un dispositivo si no se encontró |
 | Botón *Seña con movimiento* | Forzar grabación dinámica (clic para empezar y terminar) |
 
+## Apariencia (modo claro y oscuro)
+
+Mamatlatolli abre en **modo claro**. En **Configuración**, o con el control **Apariencia** del menú principal, se elige **Modo claro** o **Modo oscuro**. La ventana cambia al momento, sin cerrar el programa.
+
+La preferencia se guarda en `datos/config.json` (`"tema": "claro"` o `"tema": "oscuro"`) y se vuelve a aplicar al siguiente arranque. Los acentos siguen siendo naranja, lima e índigo, con tonos legibles sobre cada fondo.
+
 ## Permisos de la cámara
 
 Si la ventana indica que **no se encontró una cámara**, casi siempre es un permiso del sistema o un dispositivo ocupado por otra app (Zoom, Teams, el navegador, etc.).
@@ -141,7 +147,7 @@ Cierra otras apps que usen la cámara e intenta de nuevo, o pulsa **Reintentar c
 ```
 app.py                     Punto de entrada
 innova/
-  tema.py                  Paleta tríadica (naranja / lima / índigo) y logo
+  tema.py                  Paletas clara y oscura (naranja / lima / índigo) y logo
   menu.py                  Destinos del menú (sin Tk)
   pantallas.py             Menú, reconocimiento, captura, biblioteca, ajustes
   ui.py                    Ventana (CustomTkinter) y navegación

@@ -72,6 +72,7 @@ MENSAJE_CAMARA_AUSENTE = (
 )
 
 # Los colores (hex y BGR) se definen en innova.tema y se reexportan arriba.
+# aplicar_tema() actualiza estos nombres para quien lea innova.config en vivo.
 
 # Pares de landmarks al estilo MediaPipe Hands (21 puntos).
 CONEXIONES_MANO: tuple[tuple[int, int], ...] = (

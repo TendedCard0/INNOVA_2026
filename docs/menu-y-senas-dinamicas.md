@@ -17,15 +17,20 @@ marco placeholder centrado y seis tarjetas:
 | **Iniciar reconocimiento** | Cámara en vivo, letras estáticas y dinámicas. |
 | **Capturar plantillas** | Guardar una pose quieta o una trayectoria. |
 | **Biblioteca de señas** | Listar (`etiqueta` + tipo), probar o borrar. |
-| **Configuración** | Umbrales de confianza/estabilidad y sensibilidad al movimiento. |
+| **Configuración** | Umbrales de confianza/estabilidad, sensibilidad al movimiento y apariencia (modo claro / modo oscuro). |
 | **Modo demostración** | La misma vista de reconocimiento, sin cámara (`--demo`). |
 | **Acerca de Mamatlatolli** | LSM, fases del prototipo y créditos. |
 
 Cada pantalla tiene **← Menú**. `Esc` o `Q` cierran la aplicación (Q no
 cierra si estás escribiendo una letra).
 
-La cromática está en `innova/tema.py` (naranja, lima e índigo). El menú
-es claro, con tarjetas en dos columnas y un hueco para `assets/logo.png`.
+La cromática está en `innova/tema.py` (naranja, lima e índigo), con paleta
+clara y paleta oscura. El menú muestra tarjetas en dos columnas y un hueco
+para `assets/logo.png`. Abajo, el control **Apariencia** cambia entre
+**Modo claro** y **Modo oscuro** sin salir del menú. Lo mismo está en
+**Configuración**. La elección se guarda en `datos/config.json`
+(`"tema": "claro"` o `"tema": "oscuro"`) y Mamatlatolli la aplica al
+volver a abrir.
 
 `python app.py --demo` también abre el menú; *Iniciar reconocimiento* usa
 entonces el video sintético. *Modo demostración* hace lo mismo aunque no
@@ -62,8 +67,8 @@ o **mantener Space** graba aunque el detector no haya visto movimiento.
 Al soltar se lanza DTW una sola vez: no se spamea la transcripción.
 
 La sensibilidad de ese detector se regula en **Configuración** (más
-sensibilidad = más fácil pasar a dinámico). Los ajustes viven en
-`datos/config.json`.
+sensibilidad = más fácil pasar a dinámico). Los ajustes, incluida la
+apariencia, viven en `datos/config.json`.
 
 ## Reconocimiento dinámico (DTW)
 
