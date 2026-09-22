@@ -1,5 +1,11 @@
 opencv-python==4.10.0.84
 opencv-contrib-python==4.10.0.84
+# MediaPipe 0.10.14, API clásica mp.solutions (la misma que Hands):
+#   - Abecedario: mp.solutions.hands.Hands
+#   - Vocabulario: mp.solutions.pose.Pose (33 puntos, model_complexity=1;
+#     el modelo full ya viene en el paquete) y
+#     mp.solutions.face_mesh.FaceMesh(refine_landmarks=True) → 478 puntos.
+# Si Pose o Face Mesh no cargan, la palabra sigue reconociéndose con la mano.
 mediapipe==0.10.14
 customtkinter==5.2.2
 pillow==10.4.0

@@ -24,6 +24,7 @@ from innova.cuerpo import anotar_cuerpo
 from innova.detector import DetectorManos, DetectorMediaPipe, DetectorSimulado, ManoDetectada
 from innova.esquema import (
     CATEGORIA_LETRA,
+    CATEGORIA_PALABRA,
     CATEGORIA_TODAS,
     FotogramaSecuencia,
     mano_desde_deteccion,
@@ -31,7 +32,7 @@ from innova.esquema import (
     muestra_estatica_desde_mano,
     normalizar_categoria,
 )
-from innova.overlay import dibujar_manos, poner_banner
+from innova.overlay import dibujar_cuerpo, dibujar_manos, poner_banner
 from innova.reconocimiento import (
     ReconocedorEstatico,
     ReconocedorLSM,
@@ -100,6 +101,12 @@ class PipelineVision:
         self._ultimo: FotogramaProcesado | None = None
         self._grabacion: list[FotogramaSecuencia] | None = None
         self._t0_grabacion = 0.0
+        self._frame_crudo: np.ndarray | None = None
+        self._pose_vivo: dict | None = None
+        self._rostro_vivo: dict | None = None
+        self._cuerpo_anotado = False
+        # Abecedario se queda en manos. Vocabulario (y la captura en Palabra) anota cuerpo.
+        self.usar_cuerpo = bool(getattr(reconocedor, "categoria", "") == CATEGORIA_PALABRA)
 
     @property
     def n_plantillas(self) -> int:
@@ -122,6 +129,10 @@ class PipelineVision:
     @property
     def n_fotogramas_grabacion(self) -> int:
         return len(self._grabacion or [])
+
+    def set_usar_cuerpo(self, activo: bool) -> None:
+        """Activa pose y rostro (captura de palabras) o los deja apagados (letras)."""
+        self.usar_cuerpo = bool(activo)
 
     def set_forzar_dinamico(self, activo: bool) -> None:
         rec = self.reconocedor
@@ -147,8 +158,17 @@ class PipelineVision:
             frame = cv2.flip(frame, 1)
 
         manos = self.detector.detectar(frame)
+        pose: dict | None = None
+        rostro: dict | None = None
+        self._cuerpo_anotado = False
+        if self.usar_cuerpo:
+            pose, rostro = anotar_cuerpo(frame)
+            self._cuerpo_anotado = True
+        self._frame_crudo = frame
+        self._pose_vivo = pose
+        self._rostro_vivo = rostro
         if self._grabacion is not None:
-            self._anotar_grabacion(manos, frame)
+            self._anotar_grabacion(manos, pose, rostro)
 
         if reconocer:
             resultado = self.reconocedor.predecir(frame, manos)
@@ -163,6 +183,8 @@ class PipelineVision:
             )
 
         imagen = dibujar_manos(frame, manos)
+        if self.usar_cuerpo:
+            imagen = dibujar_cuerpo(imagen, pose, rostro)
         descripcion = self.fuente.descripcion()
         if isinstance(self.fuente, FuenteDemo):
             imagen = poner_banner(
@@ -217,7 +239,7 @@ class PipelineVision:
             )
         if self._ultimo is None or not self._ultimo.manos:
             raise ValueError("No hay una mano detectada para guardar. Coloca la seña frente a la cámara.")
-        pose, rostro = anotar_cuerpo(self._ultimo.imagen)
+        pose, rostro = self._cuerpo_para_guardar(cat)
         muestra = muestra_estatica_desde_mano(
             self._ultimo.manos[0],
             etiqueta,
@@ -241,6 +263,10 @@ class PipelineVision:
         origen: str,
         categoria: str = CATEGORIA_LETRA,
     ) -> Path:
+        if categoria != CATEGORIA_PALABRA:
+            fotogramas = [
+                FotogramaSecuencia(t=f.t, mano=f.mano, pose=None, rostro=None) for f in fotogramas
+            ]
         con_mano = [f for f in fotogramas if f.mano is not None]
         if len(con_mano) < MIN_FOTOGRAMAS_DINAMICO:
             raise ValueError(
@@ -248,6 +274,7 @@ class PipelineVision:
                 f"({len(con_mano)} fotogramas; mínimo {MIN_FOTOGRAMAS_DINAMICO}). "
                 "Mantén pulsado mientras haces el movimiento."
             )
+        pose, rostro = _ultimo_cuerpo(con_mano) if categoria == CATEGORIA_PALABRA else (None, None)
         muestra = muestra_dinamica_desde_fotogramas(
             etiqueta,
             con_mano,
@@ -256,8 +283,20 @@ class PipelineVision:
             notas=notas or "Captura dinámica (DTW)",
             origen=origen,
             categoria=categoria,
+            pose=pose,
+            rostro=rostro,
         )
         return self._registrar(muestra)
+
+    def _cuerpo_para_guardar(self, categoria: str) -> tuple[dict | None, dict | None]:
+        """Pose y rostro del último fotograma crudo, solo si la plantilla es una palabra."""
+        if categoria != CATEGORIA_PALABRA:
+            return None, None
+        if self._pose_vivo is not None or self._rostro_vivo is not None:
+            return self._pose_vivo, self._rostro_vivo
+        if self._frame_crudo is not None and not self._cuerpo_anotado:
+            return anotar_cuerpo(self._frame_crudo)
+        return None, None
 
     def _registrar(self, muestra) -> Path:
         reconocedor = self.reconocedor
@@ -265,7 +304,12 @@ class PipelineVision:
             return reconocedor.registrar_plantilla(muestra)
         raise ValueError("Este reconocedor no admite guardar plantillas.")
 
-    def _anotar_grabacion(self, manos: list[ManoDetectada], frame_bgr: np.ndarray) -> None:
+    def _anotar_grabacion(
+        self,
+        manos: list[ManoDetectada],
+        pose: dict | None,
+        rostro: dict | None,
+    ) -> None:
         assert self._grabacion is not None
         if not manos:
             return
@@ -273,7 +317,6 @@ class PipelineVision:
             esquema = mano_desde_deteccion(manos[0])
         except Exception:  # noqa: BLE001
             return
-        pose, rostro = anotar_cuerpo(frame_bgr)
         self._grabacion.append(
             FotogramaSecuencia(
                 t=time.monotonic() - self._t0_grabacion,
@@ -286,6 +329,15 @@ class PipelineVision:
     def cerrar(self) -> None:
         self.detector.cerrar()
         self.fuente.liberar()
+
+
+def _ultimo_cuerpo(
+    fotogramas: list[FotogramaSecuencia],
+) -> tuple[dict | None, dict | None]:
+    for foto in reversed(fotogramas):
+        if foto.pose is not None or foto.rostro is not None:
+            return foto.pose, foto.rostro
+    return None, None
 
 
 def crear_pipeline(

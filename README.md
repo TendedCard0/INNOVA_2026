@@ -11,14 +11,15 @@ El menú usa acentos tríadicos (**naranja**, **lima** e **índigo**) sobre fond
 ## ¿Qué hace hoy? (Abecedario y Vocabulario)
 
 1. Arranca en un **menú** de tarjetas en español: *Abecedario*, *Vocabulario*, *Capturar plantillas*, *Biblioteca de señas*, *Configuración*, *Modo demostración*, *Acerca de Mamatlatolli*. El logo (o su placeholder) va centrado arriba.
-2. Detecta hasta dos manos (MediaPipe) y dibuja landmarks, conexiones y un recuadro.
-3. **Abecedario** compara solo plantillas `categoria: "letra"`. **Vocabulario** compara solo `categoria: "palabra"` (estado vacío en español si aún no hay palabras).
-4. Compara una pose quieta con **plantillas estáticas** (vectores de landmarks normalizados).
-5. Si la mano se mueve con claridad ~0,4–0,8 s —o si mantienes **Seña con movimiento** / **Space**— compara la **trayectoria** con plantillas dinámicas de esa categoría mediante **DTW**.
+2. Detecta hasta dos manos (MediaPipe Hands) y dibuja landmarks, conexiones y un recuadro.
+3. **Abecedario** compara solo plantillas `categoria: "letra"` (solo manos). **Vocabulario** compara solo `categoria: "palabra"` y, además de la mano, usa **pose** (33 puntos) y **rostro** (malla facial). Si aún no hay palabras, muestra un estado vacío en español.
+4. Compara una pose quieta con **plantillas estáticas** (vectores de landmarks normalizados). En palabras, la distancia mezcla mano, pose y rostro; si falta el cuerpo o la cara, esa parte se omite.
+5. Si la mano se mueve con claridad ~0,4–0,8 s —o si mantienes **Seña con movimiento** / **Space**— compara la **trayectoria** con plantillas dinámicas de esa categoría mediante **DTW**. En palabras, cada fotograma de la secuencia puede llevar pose y rostro.
 6. Aplica un **filtro de estabilidad** antes de comprometer una seña (las dinámicas se confirman al terminar el gesto, no en cada fotograma).
 7. Permite **organizar** el banco (captura Letra/Palabra × estática/dinámica; biblioteca con filtro letra | palabra | todas).
+8. En Vocabulario dibuja un esqueleto y puntos del rostro con los colores del tema (índigo, lima, naranja).
 
-Aún **no** usa cuerpo ni rostro (`pose` y `rostro` van en `null`). Los ganchos están en `innova/cuerpo.py` para activar MediaPipe Pose y Face Mesh sin reescribir la UI.
+Abecedario deja `pose` y `rostro` en `null` para ir más ligero. Si MediaPipe Pose o Face Mesh no cargan, Vocabulario sigue reconociendo con la mano.
 
 Detalle del menú, la captura dinámica y el enrutado automático vs botón: [`docs/menu-y-senas-dinamicas.md`](docs/menu-y-senas-dinamicas.md). Esquema JSON: [`docs/esquema-datos.md`](docs/esquema-datos.md).
 
@@ -93,14 +94,14 @@ El reconocedor **no** descarga conjuntos enormes ni entrena una red. Tú (o quie
 
 1. Menú → **Capturar plantillas** → categoría **Letra** o **Palabra** → tipo **Estática**.
 2. Coloca la seña quieta, con la mano bien visible.
-3. Escribe la etiqueta y pulsa **Guardar pose actual**.
+3. Escribe la etiqueta y pulsa **Guardar pose actual**. En **Palabra**, si la cámara ve a la persona, el JSON guarda también `pose` y `rostro`. En **Letra** esos campos quedan en `null`.
 
 ### Dinámica (J, Ñ, Z… o una palabra con movimiento)
 
 1. Menú → **Capturar plantillas** → categoría **Letra** o **Palabra** → tipo **Dinámica**.
 2. Escribe la etiqueta.
 3. Pulsa **Seña con movimiento** (o mantén **Space**), haz el gesto y suelta.
-4. El archivo lleva `categoria`, `tipo: dinamico` y `secuencia` (`pose` / `rostro` = `null` hasta activar los ganchos).
+4. El archivo lleva `categoria`, `tipo: dinamico` y `secuencia`. En **Palabra**, cada fotograma puede traer `pose` y `rostro`. En **Letra** siguen en `null`.
 
 Recomendaciones:
 
@@ -111,10 +112,10 @@ Recomendaciones:
 ## Cómo funciona el reconocimiento
 
 1. **Modo.** Abecedario carga solo `categoria: "letra"`; Vocabulario solo `"palabra"`.
-2. **Landmarks.** MediaPipe Hands entrega 21 puntos (x, y, z) por mano.
+2. **Landmarks.** MediaPipe Hands entrega 21 puntos (x, y, z) por mano. En Vocabulario, MediaPipe Pose entrega 33 puntos y Face Mesh 478 (`refine_landmarks=True`), con la misma versión del paquete (`mediapipe==0.10.14`, API `mp.solutions`).
 3. **Enrutado.** Si la muñeca se mueve con claridad en una ventana de ~0,6 s (0,4–0,8 s), se trata como seña dinámica. Si está estable, como estática. El botón *Seña con movimiento* o Space fuerza el modo dinámico.
-4. **Estático.** Se normaliza (muñeca al origen, palma ≈ 1, sin rotar), se arma un vector de 78 números y se compara con plantillas `tipo: estatico` de la categoría del modo (euclidiana RMS o coseno).
-5. **Dinámico (DTW).** Cada fotograma suma esa forma más la muñeca relativa al inicio del gesto (80 números). Dynamic Time Warping alinea la secuencia con las plantillas `tipo: dinamico` de esa categoría.
+4. **Estático.** La mano se normaliza (muñeca al origen, palma ≈ 1, sin rotar) a un vector de 78 números. En palabras se suman la pose (caderas al origen, ancho de hombros ≈ 1) y un recorte del rostro (nariz al origen, distancia entre ojos ≈ 1: ojos, cejas y boca). Los pesos son mano 0,55, pose 0,30, rostro 0,15; si falta una parte, se reparte el peso entre las demás.
+5. **Dinámico (DTW).** Cada fotograma de letra suma la forma más la muñeca relativa al inicio del gesto (80 números). En palabras el fotograma añade pose y rostro; los bloques ausentes no entran en la distancia. Dynamic Time Warping alinea la secuencia con las plantillas `tipo: dinamico` de esa categoría.
 6. **Estabilidad.** Una seña estática solo se compromete con umbral + N consecutivos o M-de-K e histéresis. Una dinámica se compromete **al terminar** el gesto si la confianza basta; no se escribe un renglón por fotograma.
 7. Si no hay acuerdo, la UI muestra `detectando…` (hay mano) o `—` (no hay mano).
 
@@ -156,8 +157,8 @@ innova/
   camara.py                Captura (cámara real o fuente demo)
   detector.py              MediaPipe Hands + detector de demostración
   esquema.py               JSON versionado: categoria letra|palabra + secuencia
-  cuerpo.py                Ganchos MediaPipe Pose / Face (hoy devuelven null)
-  caracteristicas.py       Normalización, vector estático y vector dinámico
+  cuerpo.py                MediaPipe Pose (33) y Face Mesh (478) para Vocabulario
+  caracteristicas.py       Normalización de mano, pose y rostro; fusión ponderada
   dtw.py                   Dynamic Time Warping
   movimiento.py            Detector de movimiento (auto-DTW)
   ajustes.py               datos/config.json
@@ -202,13 +203,18 @@ assets/logo.png            Logo oficial (PNG transparente). Si falta, el menú u
 - [x] Abecedario y Vocabulario como tarjetas separadas (sin «Iniciar reconocimiento»)
 - [x] Campo `categoria: "letra" | "palabra"` con migración a letra
 - [x] Captura y biblioteca con filtro letra / palabra
-- [x] Reconocimiento aislado por categoría; ganchos `pose`/`rostro` en `cuerpo.py`
+- [x] Reconocimiento aislado por categoría
+- [x] MediaPipe Pose y Face Mesh en vivo para `categoria: "palabra"`
+- [x] Pose y rostro en el matching estático y en el DTW (con degradación si faltan)
+- [x] Overlay ligero de esqueleto y cara en Vocabulario
 
-### Vocabulario con cuerpo (después)
+### Primer conjunto de palabras
 
-- Activar MediaPipe Pose y Face Mesh en `innova/cuerpo.py`
-- Llenar `pose` y `rostro` (hoy van en `null`)
-- Palabras y frases que usan cuerpo, mirada y boca, no solo la mano
+Todavía no hay un banco descargado ni una red entrenada: las palabras se capturan en **Capturar plantillas** (categoría Palabra), con consentimiento y varias tomas. Conviene confirmar con una persona señalante cuáles se sostienen (estáticas) y cuáles recorren un trayecto (dinámicas). Pose y rostro ayudan cuando la seña usa cabeza, torso o boca.
+
+- [ ] Saludos y cortesía: HOLA, GRACIAS, POR FAVOR, BUENOS DÍAS
+- [ ] Respuestas: SÍ, NO
+- [ ] Casa y necesidades: AGUA, COMER, CASA, FAMILIA
 
 ## Pruebas rápidas (sin ventana)
 
@@ -225,7 +231,7 @@ No está activado el entorno virtual o faltó `pip install -r requirements.txt`.
 Instala `python3-tk` y comprueba que hay un display gráfico.
 
 **MediaPipe tarda la primera vez**  
-Es normal: carga el modelo de manos. Los siguientes arranques son más rápidos.
+Es normal: carga el modelo de manos. Vocabulario carga además la pose y la malla facial, que ya vienen en el paquete de MediaPipe. Los siguientes arranques son más rápidos. Si pose o rostro no arrancan, la palabra se reconoce con la mano y el JSON deja esos campos en `null`.
 
 **El video se ve al revés (como en un espejo)**  
 Es intencional: la vista espejo se siente más natural, como una videollamada.

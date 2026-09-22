@@ -1,4 +1,8 @@
-"""Dynamic Time Warping sobre secuencias de vectores de la mano."""
+"""Dynamic Time Warping sobre secuencias de vectores de la mano.
+
+En palabras, cada fotograma puede sumar pose y rostro (vector fusionado).
+Las letras siguen en 80 dimensiones (forma + muñeca relativa).
+"""
 
 from __future__ import annotations
 
@@ -7,9 +11,12 @@ from typing import Sequence
 import numpy as np
 
 from innova.caracteristicas import (
+    DIM_FUSION_DINAMICA,
     ErrorCaracteristicas,
+    distancia_fusion_dinamica,
     origen_y_escala_muneca,
     vector_dinamico,
+    vector_dinamico_fusion,
 )
 from innova.caracteristicas import distancia as distancia_vector
 from innova.config import SATURACION_DTW
@@ -120,6 +127,39 @@ def vectores_desde_landmarks(
     return np.vstack(filas)
 
 
+def vectores_fusionados_desde_secuencia(
+    secuencia: MuestraLSM | SecuenciaEsquema,
+) -> np.ndarray:
+    """Fotogramas de palabra → matriz (T, mano+pose+rostro).
+
+    Pose o rostro ausentes quedan en NaN y el DTW los ignora en ese par.
+    """
+    esquema = _secuencia_de(secuencia)
+    utiles = [f for f in esquema.fotogramas if f.mano is not None]
+    if not utiles:
+        raise ErrorCaracteristicas("La secuencia no tiene fotogramas con mano.")
+
+    origen, escala = origen_y_escala_muneca(utiles[0].mano.landmarks)  # type: ignore[union-attr]
+    filas: list[np.ndarray] = []
+    for foto in utiles:
+        assert foto.mano is not None
+        try:
+            filas.append(
+                vector_dinamico_fusion(
+                    foto.mano.landmarks,
+                    origen,
+                    escala,
+                    foto.pose,
+                    foto.rostro,
+                )
+            )
+        except ErrorCaracteristicas:
+            continue
+    if not filas:
+        raise ErrorCaracteristicas("No se pudieron vectorizar los fotogramas.")
+    return np.vstack(filas)
+
+
 def _secuencia_de(secuencia: MuestraLSM | SecuenciaEsquema) -> SecuenciaEsquema:
     if isinstance(secuencia, MuestraLSM):
         if secuencia.secuencia is None:
@@ -130,10 +170,14 @@ def _secuencia_de(secuencia: MuestraLSM | SecuenciaEsquema) -> SecuenciaEsquema:
 
 def _matriz_costos(a: np.ndarray, b: np.ndarray, metrica: str) -> np.ndarray:
     n, m = a.shape[0], b.shape[0]
+    fusion = a.shape[1] == DIM_FUSION_DINAMICA
     costos = np.empty((n, m), dtype=np.float64)
     for i in range(n):
         for j in range(m):
-            costos[i, j] = distancia_vector(a[i], b[j], metrica)
+            if fusion:
+                costos[i, j] = distancia_fusion_dinamica(a[i], b[j], metrica)
+            else:
+                costos[i, j] = distancia_vector(a[i], b[j], metrica)
     return costos
 
 
@@ -144,4 +188,5 @@ __all__ = [
     "mejor_plantilla_dtw",
     "vectores_desde_landmarks",
     "vectores_desde_secuencia",
+    "vectores_fusionados_desde_secuencia",
 ]

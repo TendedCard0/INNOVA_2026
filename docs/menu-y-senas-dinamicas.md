@@ -20,7 +20,7 @@ no está— y siete tarjetas:
 | Opción | Qué hace |
 | --- | --- |
 | **Abecedario** | Cámara en vivo, solo letras (estáticas y dinámicas). |
-| **Vocabulario** | Cámara en vivo, solo palabras. Si aún no hay plantillas de palabra, muestra un estado vacío en español. |
+| **Vocabulario** | Cámara en vivo, solo palabras. Usa mano, pose y rostro. Si aún no hay plantillas de palabra, muestra un estado vacío en español. |
 | **Capturar plantillas** | Guardar una pose o una trayectoria; eliges Letra o Palabra. |
 | **Biblioteca de señas** | Listar, filtrar (`letra` / `palabra` / `todas`), probar o borrar. |
 | **Configuración** | Umbrales de confianza/estabilidad, sensibilidad al movimiento y apariencia (modo claro / modo oscuro). |
@@ -55,7 +55,8 @@ abre Abecedario sin cámara aunque no hayas pasado `--demo`.
 5. Estática: pose quieta → *Guardar pose actual*.
    Dinámica: *Seña con movimiento* o **Space**, haz el gesto y suelta.
 6. El JSON lleva `categoria`, `tipo` y, si es dinámica, `secuencia`.
-   `pose` y `rostro` quedan en `null` hasta activar los ganchos.
+   En **Palabra**, `pose` y `rostro` se llenan cuando la cámara ve a la persona
+   (también en cada fotograma de una dinámica). En **Letra** quedan en `null`.
 
 Una grabación dinámica necesita al menos 6 fotogramas con mano.
 
@@ -80,9 +81,11 @@ Vocabulario.
 
 ## Reconocimiento dinámico (DTW)
 
-Cada fotograma de la secuencia se convierte en el vector de forma
+Cada fotograma de una **letra** se convierte en el vector de forma
 (78 números) más la muñeca relativa al inicio del gesto (2 números).
-Dynamic Time Warping alinea dos secuencias de distinta duración y
+En una **palabra**, el mismo fotograma suma la pose normalizada y el
+recorte del rostro; si en ese instante no se vieron, el DTW ignora ese
+bloque. Dynamic Time Warping alinea dos secuencias de distinta duración y
 elige la plantilla `tipo: dinamico` más cercana **de la categoría
 activa**.
 
@@ -98,17 +101,32 @@ y, si aplica, número de fotogramas. **Eliminar** borra el archivo.
 **Probar** abre Abecedario o Vocabulario según la categoría, con un
 recordatorio de qué seña ensayar.
 
-## Vocabulario y cuerpo (siguiente paso)
+## Vocabulario: pose y rostro
 
-Hoy Vocabulario usa **solo la mano**, igual que Abecedario. El esquema
-ya reserva `pose` y `rostro`. Para activarlos más adelante, sin
-reescribir las pantallas:
+Vocabulario corre MediaPipe Pose (33 puntos, modelo incluido en el paquete) y Face Mesh
+(478 con iris), además de las manos. El esqueleto y unos puntos de la
+cara se dibujan con índigo, lima y naranja del tema.
 
-1. Implementa MediaPipe Pose / Face Mesh en `innova/cuerpo.py`.
-2. Activa `POSE_ACTIVA` y/o `ROSTRO_ACTIVO`.
-3. El pipeline y el reconocedor ya llaman `anotar_cuerpo(frame)`.
+La distancia de una palabra reparte peso entre mano (0,55), pose (0,30)
+y rostro (0,15). Si el modelo no carga o ese fotograma no trae cuerpo,
+esa parte se omite y la seña sigue comparándose con lo que sí hay.
+Abecedario no carga estos grafos.
 
 Detalle del JSON: [`esquema-datos.md`](esquema-datos.md).
+
+## Primer conjunto de palabras
+
+No hay un corpus que descargar. El primer banco se captura a mano, con
+consentimiento, en **Capturar plantillas → Palabra**. Confirmar con una
+persona señalante qué glosas son una pose quieta y cuáles llevan
+movimiento:
+
+- Saludos y cortesía: HOLA, GRACIAS, POR FAVOR, BUENOS DÍAS
+- Respuestas: SÍ, NO
+- Casa y necesidades: AGUA, COMER, CASA, FAMILIA
+
+Varias tomas por glosa (distancia, luz, giro). Las que mueven cabeza,
+torso o boca se benefician de `pose` y `rostro`.
 
 ## Hoja de ruta
 
@@ -116,4 +134,5 @@ Detalle del JSON: [`esquema-datos.md`](esquema-datos.md).
 - [x] Fase 2a: plantillas estáticas y estabilidad
 - [x] Fase 2b: menú, captura dinámica y DTW
 - [x] Fase 3: Abecedario y Vocabulario separados; `categoria` letra/palabra
-- [ ] Activar MediaPipe Pose y Face Mesh (`innova/cuerpo.py`)
+- [x] Fase 4: MediaPipe Pose y Face Mesh en Vocabulario (estático, DTW y overlay)
+- [ ] Capturar el primer conjunto de palabras (lista de arriba)

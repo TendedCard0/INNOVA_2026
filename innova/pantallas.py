@@ -585,9 +585,9 @@ class PantallaReconocimiento(_PantallaConCamara):
         if self._es_vocabulario:
             titulo = "Vocabulario · demostración" if modo_demo else "Vocabulario"
             sub = (
-                "Video sintético · palabras (categoría palabra)"
+                "Video sintético · palabras con mano, pose y rostro"
                 if modo_demo
-                else "Palabras LSM · plantillas de categoría palabra"
+                else "Palabras LSM · mano, pose corporal y rostro"
             )
         elif modo_demo:
             titulo = "Abecedario · demostración"
@@ -910,7 +910,13 @@ class PantallaCaptura(_PantallaConCamara):
             self.ent_etiqueta.configure(placeholder_text="Ej. HOLA, GRACIAS")
         else:
             self.ent_etiqueta.configure(placeholder_text="Ej. A, Ñ, J")
+        self._sincronizar_cuerpo()
         self._on_tipo(self.seg_tipo.get() or "Estática")
+
+    def _sincronizar_cuerpo(self) -> None:
+        if self._pipeline is None:
+            return
+        self._pipeline.set_usar_cuerpo(self._categoria_actual() == CATEGORIA_PALABRA)
 
     def _on_tipo(self, valor: str) -> None:
         if getattr(self, "btn_guardar", None) is None or getattr(self, "lbl_ayuda", None) is None:
@@ -924,9 +930,9 @@ class PantallaCaptura(_PantallaConCamara):
                 hover_color=tema.COLOR_NARANJA_HOVER,
             )
             extra = (
-                " pose y rostro se llenarán cuando los ganchos de cuerpo estén activos."
+                " Cada fotograma guarda también la pose y el rostro si la cámara ve a la persona."
                 if es_palabra
-                else " pose y rostro quedan en null."
+                else " En letras, pose y rostro quedan en null: solo se guarda la mano."
             )
             self.lbl_ayuda.configure(
                 text=(
@@ -940,10 +946,15 @@ class PantallaCaptura(_PantallaConCamara):
                 fg_color=tema.COLOR_ACENTO,
                 hover_color=tema.COLOR_ACENTO_HOVER,
             )
+            extra_estatica = (
+                " Si se ve el cuerpo, también se guardan pose y rostro."
+                if es_palabra
+                else " Las letras guardan solo la mano."
+            )
             self.lbl_ayuda.configure(
                 text=(
                     f"Coloca la seña quieta, escribe {sujeto} y pulsa Guardar. "
-                    "Varias tomas mejoran el matching."
+                    f"Varias tomas mejoran el matching.{extra_estatica}"
                 )
             )
 
@@ -1025,6 +1036,7 @@ class PantallaCaptura(_PantallaConCamara):
         self._actualizar_conteo(self._pipeline.n_estaticas, self._pipeline.n_dinamicas)
 
     def _al_pipeline_listo(self) -> None:
+        self._sincronizar_cuerpo()
         if self._pipeline is not None:
             self._actualizar_conteo(self._pipeline.n_estaticas, self._pipeline.n_dinamicas)
 
