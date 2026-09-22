@@ -9,8 +9,9 @@ organizan el banco de ejemplos.
 
 ## Menú principal
 
-Al abrir `python app.py` aparece el menú (español), con el logo o un
-marco placeholder centrado y seis tarjetas:
+Al abrir `python app.py` aparece el menú (español), con el logo oficial
+(`assets/logo.png`) centrado arriba —o un marco placeholder si el archivo
+no está— y seis tarjetas:
 
 | Opción | Qué hace |
 | --- | --- |
@@ -25,7 +26,8 @@ Cada pantalla tiene **← Menú**. `Esc` o `Q` cierran la aplicación (Q no
 cierra si estás escribiendo una letra).
 
 La cromática está en `innova/tema.py` (naranja, lima e índigo). El menú
-es claro, con tarjetas en dos columnas y un hueco para `assets/logo.png`.
+es claro, con tarjetas en dos columnas y el logo oficial (`assets/logo.png`)
+centrado arriba.
 
 `python app.py --demo` también abre el menú; *Iniciar reconocimiento* usa
 entonces el video sintético. *Modo demostración* hace lo mismo aunque no

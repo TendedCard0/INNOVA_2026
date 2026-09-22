@@ -49,6 +49,7 @@ from innova.tema import (
     icono_menu,
     imagen_logo,
     nombres_iconos_menu,
+    resolver_logo,
 )
 
 _INTERVALO_MS = max(15, int(1000 / FPS_OBJETIVO))
@@ -112,11 +113,20 @@ def _recorrer_widgets(widget: Any, fn: Callable[[Any], None]) -> None:
 
 
 class MarcaMamatlatolli(ctk.CTkFrame):
-    """Logo real (`assets/logo.png`) o marco placeholder + wordmark."""
+    """Logo oficial (`assets/logo.png`) o marco placeholder, centrado, más el wordmark.
+
+    El PNG oficial es el wordmark completo (casi cuadrado). En el menú se
+    muestra más grande que el placeholder de puntos para que se lea. Si el
+    archivo no está, vuelve el marco tríadico de 104 px.
+    """
+
+    _LADO_LOGO = 240
+    _LADO_PLACEHOLDER = 104
 
     def __init__(self, master: Any) -> None:
         super().__init__(master, fg_color="transparent")
-        pil, _es_archivo = imagen_logo(104)
+        lado = self._LADO_LOGO if resolver_logo() is not None else self._LADO_PLACEHOLDER
+        pil, self._es_logo_archivo = imagen_logo(lado)
         self._logo_ctk = ctk.CTkImage(light_image=pil, dark_image=pil, size=pil.size)
         ctk.CTkLabel(self, image=self._logo_ctk, text="").pack(pady=(4, 0))
         ctk.CTkLabel(

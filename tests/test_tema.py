@@ -70,6 +70,20 @@ class TestLogoEIconos(unittest.TestCase):
             self.assertTrue(es_real)
             self.assertEqual(imagen.size, (80, 80))
 
+    def test_logo_oficial_en_assets(self) -> None:
+        from innova.tema import RUTA_LOGO
+
+        self.assertTrue(RUTA_LOGO.is_file())
+        with Image.open(RUTA_LOGO) as original:
+            self.assertEqual(original.format, "PNG")
+            self.assertEqual(original.mode, "RGBA")
+            self.assertGreater(min(original.size), 512)
+            self.assertEqual(original.getchannel("A").getextrema()[0], 0)
+        imagen, es_real = imagen_logo(96)
+        self.assertTrue(es_real)
+        self.assertEqual(imagen.size, (96, 96))
+        self.assertLess(imagen.getchannel("A").getextrema()[0], 255)
+
     def test_iconos_del_menu_cuadrados(self) -> None:
         nombres = nombres_iconos_menu()
         self.assertEqual(len(nombres), len(OPCIONES_MENU))
@@ -83,7 +97,7 @@ class TestPantallaMenuTk(unittest.TestCase):
     def test_menu_construye_seis_tarjetas_y_navega(self) -> None:
         import customtkinter as ctk
 
-        from innova.pantallas import PantallaMenu
+        from innova.pantallas import MarcaMamatlatolli, PantallaMenu
         from innova.tema import aplicar_tema
 
         aplicar_tema()
@@ -93,6 +107,13 @@ class TestPantallaMenuTk(unittest.TestCase):
         try:
             pantalla = PantallaMenu(raiz, on_ir=destinos.append)
             self.assertEqual(len(pantalla._tarjetas), 6)
+            marca = next(
+                w
+                for w in pantalla.winfo_children()[0].winfo_children()
+                if w.__class__.__name__ == "MarcaMamatlatolli"
+            )
+            self.assertTrue(marca._es_logo_archivo)
+            self.assertEqual(marca._logo_ctk._size, (MarcaMamatlatolli._LADO_LOGO,) * 2)
             etiquetas = [OPCIONES_MENU[i][1] for i in range(6)]
             self.assertEqual(etiquetas[0], "Iniciar reconocimiento")
             pantalla._tarjetas[0]._on_ir(pantalla._tarjetas[0]._destino)
