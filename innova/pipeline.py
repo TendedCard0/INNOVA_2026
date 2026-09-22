@@ -9,6 +9,7 @@ from pathlib import Path
 import cv2
 import numpy as np
 
+from innova import tema
 from innova.ajustes import Ajustes, cargar_ajustes
 from innova.camara import Camara, FuenteDemo, FuenteVideo
 from innova.config import (
@@ -37,7 +38,6 @@ from innova.reconocimiento import (
     ResultadoReconocimiento,
     crear_reconocedor,
 )
-from innova.tema import BGR_LIMA, BGR_NARANJA
 
 
 @dataclass
@@ -168,7 +168,7 @@ class PipelineVision:
             imagen = poner_banner(
                 imagen,
                 "Modo demostración — landmarks de ejemplo (sin cámara)",
-                BGR_LIMA,
+                tema.BGR_LIMA,
             )
         if self.grabando:
             n = len(self._grabacion) if self._grabacion is not None else 0
@@ -176,7 +176,7 @@ class PipelineVision:
             imagen = poner_banner(
                 imagen,
                 f"Grabando seña con movimiento…{extra}",
-                BGR_NARANJA,
+                tema.BGR_NARANJA,
             )
         procesado = FotogramaProcesado(
             imagen=imagen,

@@ -19,6 +19,7 @@ from innova.config import (
     VENTANA_MOVIMIENTO_S,
     VOTOS_M,
 )
+from innova.tema import TEMA_CLARO, normalizar_tema
 
 
 @dataclass
@@ -34,6 +35,7 @@ class Ajustes:
     ventana_movimiento_s: float = VENTANA_MOVIMIENTO_S
     umbral_movimiento: float = UMBRAL_MOVIMIENTO
     metrica: str = METRICA_DISTANCIA
+    tema: str = TEMA_CLARO
 
     def normalizado(self) -> Ajustes:
         metrica = self.metrica if self.metrica in {"euclidiana", "coseno"} else METRICA_DISTANCIA
@@ -47,6 +49,7 @@ class Ajustes:
             ventana_movimiento_s=_clip(self.ventana_movimiento_s, 0.40, 0.80),
             umbral_movimiento=_clip(self.umbral_movimiento, 0.02, 0.30),
             metrica=metrica,
+            tema=normalizar_tema(self.tema),
         )
 
 
@@ -76,6 +79,29 @@ def guardar_ajustes(ajustes: Ajustes, ruta: str | Path | None = None) -> Path:
         encoding="utf-8",
     )
     return destino
+
+
+def guardar_tema(modo: str, ruta: str | Path | None = None) -> str:
+    """Escribe solo la clave ``tema`` en config.json, sin pisar otros ajustes."""
+    elegido = normalizar_tema(modo)
+    destino = Path(ruta) if ruta is not None else RUTA_AJUSTES
+    destino.parent.mkdir(parents=True, exist_ok=True)
+    bruto: dict[str, Any] = {}
+    if destino.is_file():
+        try:
+            cargado = json.loads(destino.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            cargado = None
+        if isinstance(cargado, dict):
+            bruto = dict(cargado)
+    if not bruto:
+        bruto = asdict(cargar_ajustes(destino))
+    bruto["tema"] = elegido
+    destino.write_text(
+        json.dumps(bruto, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    return elegido
 
 
 def ajustes_desde_dict(datos: dict[str, Any]) -> Ajustes:

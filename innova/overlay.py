@@ -8,14 +8,8 @@ import cv2
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
-from innova.config import (
-    BGR_CAJA,
-    BGR_CONEXION,
-    BGR_LANDMARK,
-    BGR_SOMBRA,
-    BGR_TEXTO,
-    CONEXIONES_MANO,
-)
+from innova import tema
+from innova.config import CONEXIONES_MANO
 from innova.detector import ManoDetectada
 
 _FUENTES_CANDIDATAS = (
@@ -43,7 +37,7 @@ def poner_banner(frame_bgr: np.ndarray, texto: str, color_bgr: tuple[int, int, i
     alto, ancho = salida.shape[:2]
     franja = max(36, alto // 14)
     overlay = salida.copy()
-    cv2.rectangle(overlay, (0, 0), (ancho, franja), BGR_SOMBRA, -1)
+    cv2.rectangle(overlay, (0, 0), (ancho, franja), tema.BGR_SOMBRA, -1)
     cv2.addWeighted(overlay, 0.72, salida, 0.28, 0, salida)
     return _texto_unicode(salida, texto, (16, 8), tamano=18, color_bgr=color_bgr)
 
@@ -52,9 +46,11 @@ def frame_mensaje(
     lineas: list[str],
     ancho: int,
     alto: int,
-    color_titulo_bgr: tuple[int, int, int] = BGR_CAJA,
+    color_titulo_bgr: tuple[int, int, int] | None = None,
 ) -> np.ndarray:
     """Fotograma estático con un recado centrado (errores, espera, etc.)."""
+    if color_titulo_bgr is None:
+        color_titulo_bgr = tema.BGR_CAJA
     img = np.zeros((alto, ancho, 3), dtype=np.uint8)
     img[:] = (32, 26, 22)
     cv2.rectangle(img, (24, 24), (ancho - 24, alto - 24), (54, 44, 40), 2)
@@ -62,7 +58,7 @@ def frame_mensaje(
     y = alto // 2 - 18 * len(lineas)
     for i, linea in enumerate(lineas):
         tamano = 26 if i == 0 else 18
-        color = color_titulo_bgr if i == 0 else BGR_TEXTO
+        color = color_titulo_bgr if i == 0 else tema.BGR_TEXTO
         img = _texto_unicode(
             img,
             linea,
@@ -87,12 +83,12 @@ def _dibujar_una_mano(
     pix = [(int(p.x * ancho), int(p.y * alto)) for p in mano.puntos]
 
     for a, b in CONEXIONES_MANO:
-        cv2.line(frame, pix[a], pix[b], BGR_CONEXION, 2, cv2.LINE_AA)
+        cv2.line(frame, pix[a], pix[b], tema.BGR_CONEXION, 2, cv2.LINE_AA)
 
     for i, p in enumerate(pix):
         radio = 5 if i == 0 else 4
-        cv2.circle(frame, p, radio, BGR_LANDMARK, -1, cv2.LINE_AA)
-        cv2.circle(frame, p, radio, BGR_SOMBRA, 1, cv2.LINE_AA)
+        cv2.circle(frame, p, radio, tema.BGR_LANDMARK, -1, cv2.LINE_AA)
+        cv2.circle(frame, p, radio, tema.BGR_SOMBRA, 1, cv2.LINE_AA)
 
     xmin, ymin, xmax, ymax = mano.caja()
     pad_x, pad_y = int(0.03 * ancho), int(0.03 * alto)
@@ -101,7 +97,7 @@ def _dibujar_una_mano(
         min(ancho - 1, int(xmax * ancho) + pad_x),
         min(alto - 1, int(ymax * alto) + pad_y),
     )
-    cv2.rectangle(frame, p1, p2, BGR_CAJA, 2, cv2.LINE_AA)
+    cv2.rectangle(frame, p1, p2, tema.BGR_CAJA, 2, cv2.LINE_AA)
 
     etiqueta = _etiqueta_lateralidad(mano)
     _poner_etiqueta(frame, etiqueta, (p1[0], max(0, p1[1] - 28)))
@@ -126,13 +122,13 @@ def _poner_etiqueta(frame: np.ndarray, texto: str, origen: tuple[int, int]) -> N
     alto_etiq = 26
     x = max(0, min(x, ancho - ancho_etiq))
     y = max(0, min(y, alto - alto_etiq))
-    cv2.rectangle(frame, (x, y), (x + ancho_etiq, y + alto_etiq), BGR_SOMBRA, -1)
+    cv2.rectangle(frame, (x, y), (x + ancho_etiq, y + alto_etiq), tema.BGR_SOMBRA, -1)
     pintado = _texto_unicode(
         frame,
         texto,
         (x + 8, y + 4),
         tamano=16,
-        color_bgr=BGR_TEXTO,
+        color_bgr=tema.BGR_TEXTO,
     )
     frame[:] = pintado
 

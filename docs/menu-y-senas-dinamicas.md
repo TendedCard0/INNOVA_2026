@@ -22,7 +22,7 @@ marco placeholder centrado y siete tarjetas:
 | **Vocabulario** | Cámara en vivo, solo palabras. Si aún no hay plantillas de palabra, muestra un estado vacío en español. |
 | **Capturar plantillas** | Guardar una pose o una trayectoria; eliges Letra o Palabra. |
 | **Biblioteca de señas** | Listar, filtrar (`letra` / `palabra` / `todas`), probar o borrar. |
-| **Configuración** | Umbrales de confianza/estabilidad y sensibilidad al movimiento. |
+| **Configuración** | Umbrales de confianza/estabilidad, sensibilidad al movimiento y apariencia (modo claro / modo oscuro). |
 | **Modo demostración** | Vista de Abecedario sin cámara (`--demo`). |
 | **Acerca de Mamatlatolli** | LSM, fases del prototipo y créditos. |
 
@@ -32,9 +32,13 @@ y palabras en un solo modo confundía el banco.
 Cada pantalla tiene **← Menú**. `Esc` o `Q` cierran la aplicación (Q no
 cierra si estás escribiendo una etiqueta).
 
-La cromática está en `innova/tema.py` (naranja, lima e índigo). El menú
-es claro, con tarjetas en dos columnas (la última, *Acerca de*, ocupa
-el ancho) y un hueco para `assets/logo.png`.
+La cromática está en `innova/tema.py` (naranja, lima e índigo), con paleta
+clara y paleta oscura. El menú muestra tarjetas en dos columnas (la última,
+*Acerca de*, ocupa el ancho) y un hueco para `assets/logo.png`. Abajo, el
+control **Apariencia** cambia entre **Modo claro** y **Modo oscuro** sin
+salir del menú. Lo mismo está en **Configuración**. La elección se guarda
+en `datos/config.json` (`"tema": "claro"` o `"tema": "oscuro"`) y
+Mamatlatolli la aplica al volver a abrir.
 
 `python app.py --demo` también abre el menú; *Abecedario* y
 *Vocabulario* usan entonces el video sintético. *Modo demostración*
@@ -67,8 +71,10 @@ estable, se usa el matching estático (vectores + filtro).
 o **mantener Space** graba aunque el detector no haya visto movimiento.
 Al soltar se lanza DTW una sola vez: no se spamea la transcripción.
 
-La sensibilidad de ese detector se regula en **Configuración**. Los
-ajustes viven en `datos/config.json` y aplican a ambos modos.
+La sensibilidad de ese detector se regula en **Configuración** (más
+sensibilidad = más fácil pasar a dinámico). Los ajustes, incluida la
+apariencia, viven en `datos/config.json` y aplican a Abecedario y a
+Vocabulario.
 
 ## Reconocimiento dinámico (DTW)
 
