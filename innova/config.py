@@ -25,7 +25,7 @@ from innova.tema import (  # noqa: F401 — reexportados para overlay y código 
 # nombre del software es Mamatlatolli.
 NOMBRE_PRODUCTO = "Mamatlatolli"
 TITULO_VENTANA = "Mamatlatolli — Reconocimiento de LSM"
-SUBTITULO = "Lengua de Señas Mexicana · fase 2b (menú y señas dinámicas)"
+SUBTITULO = "Lengua de Señas Mexicana · Abecedario y Vocabulario"
 
 ANCHO_VIDEO = 640
 ALTO_VIDEO = 480
@@ -72,6 +72,7 @@ MENSAJE_CAMARA_AUSENTE = (
 )
 
 # Los colores (hex y BGR) se definen en innova.tema y se reexportan arriba.
+# aplicar_tema() actualiza estos nombres para quien lea innova.config en vivo.
 
 # Pares de landmarks al estilo MediaPipe Hands (21 puntos).
 CONEXIONES_MANO: tuple[tuple[int, int], ...] = (
