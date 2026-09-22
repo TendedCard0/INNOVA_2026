@@ -11,12 +11,14 @@ import numpy as np
 from innova.camara import esqueleto_mano_normalizado
 from innova.config import ETIQUETA_DETECTANDO, MIN_FOTOGRAMAS_DINAMICO
 from innova.detector import ManoDetectada, Punto
+from innova.caracteristicas import DIM_FUSION_DINAMICA
 from innova.dtw import (
     confianza_dtw,
     dtw_distancia,
     mejor_plantilla_dtw,
     vectores_desde_landmarks,
     vectores_desde_secuencia,
+    vectores_fusionados_desde_secuencia,
 )
 from innova.esquema import (
     FotogramaSecuencia,
@@ -61,6 +63,18 @@ def _muestra_barrido(etiqueta: str, eje: str, n: int = 12):
     return muestra_dinamica_desde_fotogramas(etiqueta, frames, origen="test")
 
 
+def _con_cuerpo(muestra):
+    pts = [[0.5, 0.5, 0.0] for _ in range(33)]
+    pts[11] = [0.40, 0.35, 0.0]
+    pts[12] = [0.60, 0.35, 0.0]
+    pts[23] = [0.42, 0.70, 0.0]
+    pts[24] = [0.58, 0.70, 0.0]
+    pose = {"landmarks": pts}
+    for foto in muestra.secuencia.fotogramas:
+        foto.pose = pose
+    return muestra
+
+
 class TestDTW(unittest.TestCase):
     def test_secuencias_identicas_distancia_cero(self) -> None:
         a = vectores_desde_landmarks(_landmarks_barrido(10, "x"))
@@ -93,6 +107,16 @@ class TestDTW(unittest.TestCase):
         mat = vectores_desde_landmarks(_landmarks_barrido(6, "x"))
         self.assertEqual(mat.shape[1], 80)
         self.assertEqual(mat.shape[0], 6)
+
+    def test_fusion_de_palabra_suma_pose_sin_cambiar_la_letra(self) -> None:
+        muestra = _con_cuerpo(_muestra_barrido("J", "x", n=6))
+        solo_mano = vectores_desde_secuencia(muestra)
+        fusion = vectores_fusionados_desde_secuencia(muestra)
+        self.assertEqual(solo_mano.shape[1], 80)
+        self.assertEqual(fusion.shape, (6, DIM_FUSION_DINAMICA))
+        self.assertTrue(np.all(np.isfinite(fusion[:, 80:179])))
+        d = dtw_distancia(fusion, fusion)
+        self.assertAlmostEqual(d, 0.0, places=6)
 
 
 class TestReconocedorDinamico(unittest.TestCase):

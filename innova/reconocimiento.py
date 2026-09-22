@@ -31,7 +31,10 @@ from innova.caracteristicas import (
     ErrorCaracteristicas,
     confianza_desde_distancia,
     distancia,
+    distancia_partes,
     extraer_vector,
+    vector_pose_opcional,
+    vector_rostro_opcional,
 )
 from innova.config import (
     COOLDOWN_DINAMICO_S,
@@ -46,7 +49,12 @@ from innova.config import (
     SATURACION_DTW,
 )
 from innova.detector import ManoDetectada
-from innova.dtw import confianza_dtw, mejor_plantilla_dtw, vectores_desde_secuencia
+from innova.dtw import (
+    confianza_dtw,
+    mejor_plantilla_dtw,
+    vectores_desde_secuencia,
+    vectores_fusionados_desde_secuencia,
+)
 from innova.cuerpo import anotar_cuerpo
 from innova.esquema import (
     CATEGORIA_LETRA,
@@ -133,6 +141,8 @@ class ReconocedorEstatico:
         )
         self._plantillas: list[MuestraLSM] = []
         self._vectores: list[tuple[str, np.ndarray]] = []
+        # Paralelo a ``_vectores`` solo en categoría palabra: (pose, rostro) o None.
+        self._extras: list[tuple[np.ndarray | None, np.ndarray | None]] = []
         self._secuencias: list[tuple[str, np.ndarray]] = []
         self.avisos_carga: list[str] = []
 
@@ -141,7 +151,9 @@ class ReconocedorEstatico:
         self._t0_forzado = 0.0
         self._pendiente_forzado = False
 
-        self._historial_vivo: deque[tuple[float, ManoEsquema | None]] = deque(maxlen=36)
+        self._historial_vivo: deque[
+            tuple[float, ManoEsquema | None, dict | None, dict | None]
+        ] = deque(maxlen=36)
         self._gesto_auto: list[FotogramaSecuencia] | None = None
         self._t0_gesto = 0.0
         self._quietos = 0
@@ -168,17 +180,25 @@ class ReconocedorEstatico:
         muestras = filtrar_por_categoria(muestras, self.categoria)
         self._plantillas = plantillas_estaticas(muestras)
         self._vectores = []
+        self._extras = []
         for muestra in self._plantillas:
             assert muestra.mano is not None
             vector = np.asarray(muestra.mano.caracteristicas, dtype=np.float64)
             if vector.size < 63:
                 continue
             self._vectores.append((muestra.etiqueta, vector))
+            if self.categoria == CATEGORIA_PALABRA:
+                self._extras.append(
+                    (vector_pose_opcional(muestra.pose), vector_rostro_opcional(muestra.rostro))
+                )
 
         self._secuencias = []
         for muestra in plantillas_dinamicas(muestras):
             try:
-                matriz = vectores_desde_secuencia(muestra)
+                if self.categoria == CATEGORIA_PALABRA:
+                    matriz = vectores_fusionados_desde_secuencia(muestra)
+                else:
+                    matriz = vectores_desde_secuencia(muestra)
             except ErrorCaracteristicas:
                 continue
             if matriz.shape[0] < MIN_FOTOGRAMAS_DINAMICO:
@@ -210,9 +230,16 @@ class ReconocedorEstatico:
             self._pendiente_forzado = True
 
     def estimar_crudo(
-        self, manos: Sequence[ManoDetectada]
+        self,
+        manos: Sequence[ManoDetectada],
+        pose: dict | None = None,
+        rostro: dict | None = None,
     ) -> tuple[str | None, float, float]:
-        """(etiqueta, distancia, confianza) del fotograma, sin filtro."""
+        """(etiqueta, distancia, confianza) del fotograma, sin filtro.
+
+        En Vocabulario, ``pose`` y ``rostro`` entran con peso propio. Si faltan,
+        la comparación usa solo las partes que sí están (la mano, como mínimo).
+        """
         if not manos or not self._vectores:
             return None, float("inf"), 0.0
         mano = _mano_principal(manos)
@@ -221,11 +248,27 @@ class ReconocedorEstatico:
         except ErrorCaracteristicas:
             return None, float("inf"), 0.0
 
+        usar_cuerpo = self.categoria == CATEGORIA_PALABRA
+        pose_v = vector_pose_opcional(pose) if usar_cuerpo else None
+        rostro_v = vector_rostro_opcional(rostro) if usar_cuerpo else None
+
         mejor_etiq: str | None = None
         mejor_dist = float("inf")
-        for etiqueta, plantilla in self._vectores:
+        for i, (etiqueta, plantilla) in enumerate(self._vectores):
             try:
-                dist = distancia(vector, plantilla, self.metrica)
+                if usar_cuerpo:
+                    extra_pose, extra_rostro = self._extras[i]
+                    dist = distancia_partes(
+                        vector,
+                        plantilla,
+                        pose_v,
+                        extra_pose,
+                        rostro_v,
+                        extra_rostro,
+                        self.metrica,
+                    )
+                else:
+                    dist = distancia(vector, plantilla, self.metrica)
             except ErrorCaracteristicas:
                 continue
             if dist < mejor_dist:
@@ -248,25 +291,29 @@ class ReconocedorEstatico:
         if mano is not None and mano.puntos:
             muneca = (float(mano.puntos[0].x), float(mano.puntos[0].y))
         mov = self._movimiento.actualizar(muneca, ahora)
-        self._anotar_historial(ahora, mano)
+        pose: dict | None = None
+        rostro: dict | None = None
+        if self.categoria == CATEGORIA_PALABRA:
+            pose, rostro = anotar_cuerpo(frame_bgr)
+        self._anotar_historial(ahora, mano, pose, rostro)
 
         if self.forzar_dinamico:
-            return self._durante_forzado(mano, hay_mano, mov, frame_bgr)
+            return self._durante_forzado(mano, hay_mano, mov, pose, rostro)
 
         if self._pendiente_forzado:
             return self._cerrar_forzado(hay_mano, mov)
 
         if self._gesto_auto is not None:
-            return self._durante_auto(mano, hay_mano, mov, ahora, frame_bgr)
+            return self._durante_auto(mano, hay_mano, mov, ahora, pose, rostro)
 
         if (
             mov.en_movimiento
             and self._secuencias
             and ahora >= self._cooldown_hasta
         ):
-            return self._iniciar_auto(mano, hay_mano, mov, ahora, frame_bgr)
+            return self._iniciar_auto(mano, hay_mano, mov, ahora, pose, rostro)
 
-        return self._predecir_estatico(manos, hay_mano, mov)
+        return self._predecir_estatico(manos, hay_mano, mov, pose, rostro)
 
     def predecir_dinamico(
         self,
@@ -283,7 +330,10 @@ class ReconocedorEstatico:
                 modo="dinamico",
             )
         try:
-            consulta = vectores_desde_secuencia(secuencia)
+            if self.categoria == CATEGORIA_PALABRA:
+                consulta = vectores_fusionados_desde_secuencia(secuencia)
+            else:
+                consulta = vectores_desde_secuencia(secuencia)
         except ErrorCaracteristicas as exc:
             return ResultadoReconocimiento(
                 etiqueta=ETIQUETA_DETECTANDO,
@@ -334,8 +384,10 @@ class ReconocedorEstatico:
         manos: Sequence[ManoDetectada],
         hay_mano: bool,
         mov: EstadoMovimiento,
+        pose: dict | None = None,
+        rostro: dict | None = None,
     ) -> ResultadoReconocimiento:
-        etiqueta_cruda, dist, conf_cruda = self.estimar_crudo(manos)
+        etiqueta_cruda, dist, conf_cruda = self.estimar_crudo(manos, pose, rostro)
 
         if not self._vectores and not self._secuencias:
             self._filtro.reiniciar()
@@ -405,9 +457,10 @@ class ReconocedorEstatico:
         mano: ManoDetectada | None,
         hay_mano: bool,
         mov: EstadoMovimiento,
-        frame_bgr: np.ndarray,
+        pose: dict | None,
+        rostro: dict | None,
     ) -> ResultadoReconocimiento:
-        foto = _fotograma_de(mano, time.monotonic() - self._t0_forzado, frame_bgr)
+        foto = _fotograma_de(mano, time.monotonic() - self._t0_forzado, pose, rostro)
         if foto is not None:
             self._buffer_forzado.append(foto)
         n = len(self._buffer_forzado)
@@ -447,18 +500,18 @@ class ReconocedorEstatico:
         hay_mano: bool,
         mov: EstadoMovimiento,
         ahora: float,
-        frame_bgr: np.ndarray,
+        pose: dict | None,
+        rostro: dict | None,
     ) -> ResultadoReconocimiento:
         self._filtro.reiniciar()
         self._t0_gesto = self._historial_vivo[0][0] if self._historial_vivo else ahora
         self._gesto_auto = []
-        for t, esquema in self._historial_vivo:
-            pose, rostro = anotar_cuerpo(None)
+        for t, esquema, pose_h, rostro_h in self._historial_vivo:
             self._gesto_auto.append(
-                FotogramaSecuencia(t=t - self._t0_gesto, mano=esquema, pose=pose, rostro=rostro)
+                FotogramaSecuencia(t=t - self._t0_gesto, mano=esquema, pose=pose_h, rostro=rostro_h)
             )
         if mano is not None and (not self._gesto_auto or self._gesto_auto[-1].mano is None):
-            foto = _fotograma_de(mano, ahora - self._t0_gesto, frame_bgr)
+            foto = _fotograma_de(mano, ahora - self._t0_gesto, pose, rostro)
             if foto is not None:
                 self._gesto_auto.append(foto)
         self._quietos = 0
@@ -477,10 +530,11 @@ class ReconocedorEstatico:
         hay_mano: bool,
         mov: EstadoMovimiento,
         ahora: float,
-        frame_bgr: np.ndarray,
+        pose: dict | None,
+        rostro: dict | None,
     ) -> ResultadoReconocimiento:
         assert self._gesto_auto is not None
-        foto = _fotograma_de(mano, ahora - self._t0_gesto, frame_bgr)
+        foto = _fotograma_de(mano, ahora - self._t0_gesto, pose, rostro)
         if foto is not None:
             self._gesto_auto.append(foto)
 
@@ -534,14 +588,20 @@ class ReconocedorEstatico:
         # El filtro estático no debe pelear con este compromiso en el siguiente fotograma.
         self._filtro.reiniciar()
 
-    def _anotar_historial(self, t: float, mano: ManoDetectada | None) -> None:
+    def _anotar_historial(
+        self,
+        t: float,
+        mano: ManoDetectada | None,
+        pose: dict | None = None,
+        rostro: dict | None = None,
+    ) -> None:
         esquema: ManoEsquema | None = None
         if mano is not None:
             try:
                 esquema = mano_desde_deteccion(mano)
             except Exception:  # noqa: BLE001 — un fotograma degenerado no debe tumbar el pipeline
                 esquema = None
-        self._historial_vivo.append((t, esquema))
+        self._historial_vivo.append((t, esquema, pose, rostro))
 
     def _mensaje_estatico(
         self,
@@ -584,7 +644,8 @@ class ReconocedorEstatico:
 def _fotograma_de(
     mano: ManoDetectada | None,
     t: float,
-    frame_bgr: np.ndarray | None = None,
+    pose: dict | None = None,
+    rostro: dict | None = None,
 ) -> FotogramaSecuencia | None:
     if mano is None:
         return None
@@ -592,7 +653,6 @@ def _fotograma_de(
         esquema = mano_desde_deteccion(mano)
     except Exception:  # noqa: BLE001
         return None
-    pose, rostro = anotar_cuerpo(frame_bgr)
     return FotogramaSecuencia(
         t=float(max(0.0, t)),
         mano=esquema,

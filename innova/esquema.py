@@ -4,8 +4,8 @@ Una *muestra* es o bien un fotograma estático (una seña de una sola pose) o
 una secuencia dinámica (trayectoria, DTW). El campo `categoria` separa
 letras (`letra`, Abecedario) de palabras (`palabra`, Vocabulario).
 
-Los campos `pose` y `rostro` ya existen para el vocabulario completo;
-hoy van en null hasta que `innova.cuerpo` active MediaPipe Pose / Face.
+Los campos `pose` y `rostro` los llena Vocabulario (`innova.cuerpo`,
+MediaPipe Pose y Face Mesh). En Abecedario quedan en null.
 """
 
 from __future__ import annotations
@@ -156,8 +156,8 @@ def muestra_estatica_desde_mano(
 ) -> MuestraLSM:
     """Crea una muestra `tipo=estatico` lista para serializar.
 
-    `pose` / `rostro` quedan en null salvo que el gancho de `innova.cuerpo`
-    los haya llenado (vocabulario completo).
+    `pose` / `rostro` quedan en null en letras. En palabras, `innova.cuerpo`
+    los llena cuando la cámara ve a la persona.
     """
     etiqueta_n = normalizar_etiqueta(etiqueta)
     return MuestraLSM(
@@ -427,7 +427,7 @@ def _errores_secuencia(valor: Any, *, obligatorio: bool) -> list[str]:
 
 
 def _errores_cuerpo_opcional(valor: Any, campo: str) -> list[str]:
-    """pose / rostro: null (fase 2a) o un objeto con lista `landmarks` (futuro)."""
+    """pose / rostro: null, o un objeto con lista `landmarks` (y visibilidad opcional)."""
     if valor is None:
         return []
     if not isinstance(valor, dict):

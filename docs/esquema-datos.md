@@ -15,9 +15,9 @@ Si un JSON antiguo **no trae** `categoria`, Mamatlatolli lo lee como
 `"letra"` para no romper plantillas ya capturadas. Al volver a guardar
 siempre se escribe el campo.
 
-Los campos `pose` y `rostro` ya existen para el vocabulario completo
-(cuerpo y cara). Hoy van en `null`: solo corre el detector de manos.
-Los ganchos para llenarlos están en `innova/cuerpo.py` (ver más abajo).
+Los campos `pose` y `rostro` los llena **Vocabulario** (`categoria: "palabra"`).
+**Abecedario** los deja en `null` y solo corre el detector de manos.
+La extracción vive en `innova/cuerpo.py`.
 
 Los archivos viven en `datos/plantillas/` (también se aceptan subcarpetas)
 y se leen al arrancar el reconocedor. La validación está en `innova/esquema.py`
@@ -32,8 +32,8 @@ y se leen al arrancar el reconocedor. La validación está en `innova/esquema.py
 | `categoria` | `"letra"` \| `"palabra"` | Si falta, se asume `"letra"`. |
 | `tipo` | `"estatico"` \| `"dinamico"` | Estático = un fotograma; dinámico = trayectoria. |
 | `mano` | objeto o `null` | Obligatorio si `tipo` es `estatico`. |
-| `pose` | objeto o `null` | Reservado (MediaPipe Pose, 33 puntos). Hoy: `null`. |
-| `rostro` | objeto o `null` | Reservado (malla facial, ~478 puntos). Hoy: `null`. |
+| `pose` | objeto o `null` | MediaPipe Pose, 33 puntos. `null` en letras, o si no se ve el cuerpo. |
+| `rostro` | objeto o `null` | Face Mesh, 478 puntos con iris (se aceptan 468). `null` en letras, o si no se ve la cara. |
 | `secuencia` | objeto o `null` | Obligatorio si `tipo` es `dinamico`. |
 | `metadatos` | objeto | Tiempo, fps, notas, consentimiento, origen. |
 
@@ -58,8 +58,8 @@ se recalculan a partir de `landmarks`.
     {
       "t": 0.0,
       "mano": { "...": "mismo bloque mano, o null" },
-      "pose": null,
-      "rostro": null
+      "pose": { "landmarks": [[0.5, 0.4, 0.0]], "visibilidad": [0.9] },
+      "rostro": { "landmarks": [[0.5, 0.4, 0.0]] }
     }
   ]
 }
@@ -68,31 +68,47 @@ se recalculan a partir de `landmarks`.
 `t` es el tiempo en segundos desde el inicio del gesto. El reconocedor
 estático ignora este bloque; `predecir_dinamico()` compara `fotogramas`
 con Dynamic Time Warping contra las plantillas `tipo: dinamico` **de la
-misma categoría** (letra o palabra).
+misma categoría** (letra o palabra). En palabras, cada fotograma aporta
+también pose y rostro cuando existen.
 
-### `pose` y `rostro` (vocabulario completo)
+### `pose` y `rostro` (Vocabulario)
 
-Cuando existan, serán objetos con al menos `"landmarks": [ [x, y, z], ... ]`.
-Hoy el validador acepta `null` o ese objeto.
+Objeto o `null`. Cuando hay detección:
 
-**Ganchos (sin reescribir la UI):**
+```json
+{
+  "landmarks": [[0.5, 0.4, -0.1]],
+  "visibilidad": [0.98]
+}
+```
+
+`visibilidad` es opcional (la trae la pose; el rostro no). `landmarks` son
+coordenadas normalizadas de MediaPipe (x, y en 0–1). Pose: 33 puntos.
+Rostro: 478 con `refine_landmarks=True` (se acepta una malla de 468).
+
+El vector de matching **no** se guarda dentro de `pose` / `rostro`. Al
+reconocer, `innova/caracteristicas.py` normaliza y fusiona:
+
+| Parte | Referencia | Peso |
+| --- | --- | --- |
+| Mano | Muñeca al origen, palma ≈ 1 | 0,55 |
+| Pose | Punto medio de caderas, ancho de hombros ≈ 1 | 0,30 |
+| Rostro | Nariz al origen, distancia entre ojos ≈ 1 (15 puntos: ojos, cejas, boca) | 0,15 |
+
+Si falta pose o rostro en la consulta o en la plantilla, ese peso se reparte
+entre las partes que sí están. Una palabra antigua, solo con mano, sigue
+comparándose.
+
+**Dónde corre:**
 
 | Pieza | Rol |
 | --- | --- |
-| `innova/cuerpo.py` | `POSE_ACTIVA` / `ROSTRO_ACTIVO`, `extraer_pose()`, `extraer_rostro()`, `anotar_cuerpo()`. |
-| `innova/pipeline.py` | Al capturar, llama `anotar_cuerpo(frame)` y guarda el resultado. |
-| `innova/reconocimiento.py` | Al grabar una trayectoria en vivo, el fotograma también pasa por el gancho. |
+| `innova/cuerpo.py` | `extraer_pose()`, `extraer_rostro()`, `anotar_cuerpo()`. Pose (`model_complexity=1`, modelo incluido) y Face Mesh. |
+| `innova/pipeline.py` | En Vocabulario y al capturar Palabra, anota el fotograma crudo y dibuja el overlay. |
+| `innova/reconocimiento.py` | Matching estático y DTW de `categoria: "palabra"` usan la fusión. |
 
-Hoy esas funciones **devuelven `None`**. Para activarlas más adelante:
-
-1. Implementa el detector MediaPipe Pose (33 landmarks) y/o Face Mesh.
-2. Pon `POSE_ACTIVA` y/o `ROSTRO_ACTIVO` en `True`.
-3. Llena el dict `{ "landmarks": [...] }` en `extraer_pose` / `extraer_rostro`.
-
-Abecedario y Vocabulario no cambian de pantalla: el JSON ya tiene el hueco.
-
-Mientras los ganchos estén apagados, **Vocabulario reconoce solo con la
-mano**, igual que Abecedario, pero contra plantillas `categoria: "palabra"`.
+Abecedario no carga estos modelos. Si el grafo no arranca, las funciones
+devuelven `None` y la palabra se reconoce con la mano.
 
 ### `metadatos`
 
@@ -162,6 +178,6 @@ características.)
 }
 ```
 
-En una captura real cada fotograma lleva su `mano` (y más adelante
-`pose` / `rostro`). Cómo grabar esas secuencias desde el menú está en
+En una captura real de palabra cada fotograma lleva su `mano` y, si se
+detectan, `pose` y `rostro`. Cómo grabar esas secuencias desde el menú está en
 [`menu-y-senas-dinamicas.md`](menu-y-senas-dinamicas.md).

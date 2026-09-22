@@ -9,8 +9,12 @@ import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
 from innova import tema
+from innova.caracteristicas import INDICES_ROSTRO
 from innova.config import CONEXIONES_MANO
+from innova.cuerpo import CONEXIONES_POSE
 from innova.detector import ManoDetectada
+
+_UMBRAL_VISIBILIDAD = 0.5
 
 _FUENTES_CANDIDATAS = (
     Path("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"),
@@ -29,6 +33,26 @@ def dibujar_manos(frame_bgr: np.ndarray, manos: list[ManoDetectada]) -> np.ndarr
     for mano in manos:
         _dibujar_una_mano(salida, mano, ancho, alto)
     return salida
+
+
+def dibujar_cuerpo(
+    frame_bgr: np.ndarray,
+    pose: dict | None,
+    rostro: dict | None,
+) -> np.ndarray:
+    """Esqueleto de pose y puntos de la cara, con los colores del tema.
+
+    Dibuja sobre el fotograma que recibe (el overlay de manos ya es una copia).
+    Si no hay landmarks, devuelve el mismo arreglo.
+    """
+    if not pose and not rostro:
+        return frame_bgr
+    alto, ancho = frame_bgr.shape[:2]
+    if pose:
+        _dibujar_pose(frame_bgr, pose, ancho, alto)
+    if rostro:
+        _dibujar_rostro(frame_bgr, rostro, ancho, alto)
+    return frame_bgr
 
 
 def poner_banner(frame_bgr: np.ndarray, texto: str, color_bgr: tuple[int, int, int]) -> np.ndarray:
@@ -101,6 +125,66 @@ def _dibujar_una_mano(
 
     etiqueta = _etiqueta_lateralidad(mano)
     _poner_etiqueta(frame, etiqueta, (p1[0], max(0, p1[1] - 28)))
+
+
+def _dibujar_pose(frame: np.ndarray, pose: dict, ancho: int, alto: int) -> None:
+    puntos = _puntos_visibles(pose, ancho, alto)
+    if len(puntos) < 2:
+        return
+    for a, b in CONEXIONES_POSE:
+        if a not in puntos or b not in puntos:
+            continue
+        cv2.line(frame, puntos[a], puntos[b], tema.BGR_INDIGO, 2, cv2.LINE_AA)
+    for pix in puntos.values():
+        cv2.circle(frame, pix, 3, tema.BGR_LIMA, -1, cv2.LINE_AA)
+
+
+def _dibujar_rostro(frame: np.ndarray, rostro: dict, ancho: int, alto: int) -> None:
+    crudos = rostro.get("landmarks") if isinstance(rostro, dict) else None
+    if not isinstance(crudos, list):
+        return
+    for indice in INDICES_ROSTRO:
+        if indice >= len(crudos):
+            continue
+        pix = _pixel(crudos[indice], ancho, alto)
+        if pix is None:
+            continue
+        cv2.circle(frame, pix, 2, tema.BGR_NARANJA, -1, cv2.LINE_AA)
+
+
+def _puntos_visibles(bloque: dict, ancho: int, alto: int) -> dict[int, tuple[int, int]]:
+    crudos = bloque.get("landmarks") if isinstance(bloque, dict) else None
+    if not isinstance(crudos, list):
+        return {}
+    vis = bloque.get("visibilidad")
+    salida: dict[int, tuple[int, int]] = {}
+    for i, p in enumerate(crudos):
+        if isinstance(vis, list) and i < len(vis):
+            try:
+                if float(vis[i]) < _UMBRAL_VISIBILIDAD:
+                    continue
+            except (TypeError, ValueError):
+                pass
+        pix = _pixel(p, ancho, alto)
+        if pix is not None:
+            salida[i] = pix
+    return salida
+
+
+def _pixel(punto: object, ancho: int, alto: int) -> tuple[int, int] | None:
+    try:
+        if hasattr(punto, "x") and hasattr(punto, "y"):
+            x = float(punto.x)  # type: ignore[attr-defined]
+            y = float(punto.y)  # type: ignore[attr-defined]
+        else:
+            seq = list(punto)  # type: ignore[arg-type]
+            x = float(seq[0])
+            y = float(seq[1])
+    except (TypeError, ValueError, IndexError):
+        return None
+    px = int(max(0, min(ancho - 1, round(x * ancho))))
+    py = int(max(0, min(alto - 1, round(y * alto))))
+    return px, py
 
 
 def _etiqueta_lateralidad(mano: ManoDetectada) -> str:

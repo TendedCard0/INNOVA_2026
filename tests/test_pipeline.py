@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from innova.camara import Camara, CamaraNoDisponibleError
 from innova.cli import parsear_argumentos
@@ -92,6 +93,50 @@ class TestPipelineDemo(unittest.TestCase):
                     rec_letra.cerrar()
             finally:
                 pipeline.cerrar()
+
+    def test_vocabulario_guarda_pose_y_rostro(self) -> None:
+        pose = {"landmarks": [[0.2, 0.3, 0.0]] * 33, "visibilidad": [0.9] * 33}
+        rostro = {"landmarks": [[0.45, 0.4, 0.0]] * 478}
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch("innova.pipeline.anotar_cuerpo", return_value=(pose, rostro)) as anotar:
+                pipeline = crear_pipeline(modo_demo=True, ruta_plantillas=tmp, categoria="palabra")
+                try:
+                    self.assertTrue(pipeline.usar_cuerpo)
+                    self.assertIsNotNone(pipeline.procesar())
+                    self.assertGreaterEqual(anotar.call_count, 1)
+                    ruta = pipeline.guardar_plantilla("gracias", categoria="palabra")
+                    data = json.loads(ruta.read_text(encoding="utf-8"))
+                    self.assertEqual(len(data["pose"]["landmarks"]), 33)
+                    self.assertEqual(len(data["rostro"]["landmarks"]), 478)
+
+                    pipeline.iniciar_grabacion()
+                    for _ in range(8):
+                        self.assertIsNotNone(pipeline.procesar(reconocer=False))
+                    frames = pipeline.detener_grabacion()
+                    ruta_d = pipeline.guardar_plantilla(
+                        "hola", tipo="dinamico", fotogramas=frames, categoria="palabra"
+                    )
+                    dinamica = json.loads(ruta_d.read_text(encoding="utf-8"))
+                    self.assertEqual(len(dinamica["pose"]["landmarks"]), 33)
+                    self.assertIsNotNone(dinamica["secuencia"]["fotogramas"][0]["pose"])
+                    self.assertIsNotNone(dinamica["secuencia"]["fotogramas"][0]["rostro"])
+                finally:
+                    pipeline.cerrar()
+
+    def test_abecedario_no_pide_cuerpo(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch("innova.pipeline.anotar_cuerpo", return_value=({"landmarks": []}, {"landmarks": []})) as anotar:
+                pipeline = crear_pipeline(modo_demo=True, ruta_plantillas=tmp, categoria="letra")
+                try:
+                    self.assertFalse(pipeline.usar_cuerpo)
+                    self.assertIsNotNone(pipeline.procesar())
+                    anotar.assert_not_called()
+                    ruta = pipeline.guardar_plantilla("a")
+                    data = json.loads(ruta.read_text(encoding="utf-8"))
+                    self.assertIsNone(data["pose"])
+                    self.assertIsNone(data["rostro"])
+                finally:
+                    pipeline.cerrar()
 
 
 class TestBitacora(unittest.TestCase):

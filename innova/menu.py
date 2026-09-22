@@ -40,7 +40,7 @@ OPCIONES_MENU: tuple[tuple[str, str, str], ...] = (
     (
         DESTINO_VOCABULARIO,
         "Vocabulario",
-        "Palabras LSM: plantillas de palabra (pose y rostro listos).",
+        "Palabras LSM: mano, pose corporal y rostro.",
     ),
     (
         DESTINO_CAPTURA,
@@ -76,7 +76,8 @@ TEXTO_ACERCA = (
     "Fase 1 — ventana, video en vivo y detección de manos.\n"
     "Fase 2a — plantillas estáticas (landmarks normalizados) y filtro de estabilidad.\n"
     "Fase 2b — menú principal y letras con movimiento comparadas con DTW.\n"
-    "Fase 3 — Abecedario y Vocabulario como modos separados; categoría letra/palabra.\n\n"
+    "Fase 3 — Abecedario y Vocabulario como modos separados; categoría letra/palabra.\n"
+    "Fase 4 — Vocabulario con pose corporal y rostro en vivo.\n\n"
     "El uso diario se divide en «Abecedario» (letras) y «Vocabulario» (palabras). "
     "Capturar plantillas y la biblioteca organizan el banco de señas: elige Letra o "
     "Palabra al guardar, y filtra igual al revisar.\n\n"
@@ -86,9 +87,10 @@ TEXTO_ACERCA = (
     "Mamatlatolli usa las plantillas dinámicas; si permanece estable, usa las "
     "estáticas. También puedes forzar el modo dinámico con «Seña con movimiento» "
     "o manteniendo Space. Lo mismo aplica a las palabras dinámicas.\n\n"
-    "Pose y rostro ya caben en el esquema. Los ganchos están en innova/cuerpo.py "
-    "y hoy devuelven null; cuando se activen MediaPipe Pose y Face Mesh, la UI "
-    "no tiene que reescribirse.\n\n"
+    "En Vocabulario, cada fotograma puede guardar la pose (MediaPipe Pose, 33 puntos) "
+    "y el rostro (Face Mesh, 478 puntos), además de la mano. Esas señales entran al "
+    "matching estático y al DTW. Abecedario sigue con solo las manos. Si el modelo "
+    "no carga o la cámara no ve el cuerpo, la palabra se reconoce con la mano.\n\n"
     "Proyecto estudiantil — Instituto Tecnológico de San Juan del Río.\n"
     "Esc o Q cierran la aplicación."
 )
