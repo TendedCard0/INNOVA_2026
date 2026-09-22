@@ -11,6 +11,7 @@ from innova.menu import (
     DESTINO_ABECEDARIO,
     DESTINO_CAPTURA,
     DESTINO_MENU,
+    DESTINO_PRACTICA,
     DESTINO_VOCABULARIO,
     Navegador,
     OPCIONES_MENU,
@@ -55,12 +56,13 @@ class TestAjustes(unittest.TestCase):
 
 
 class TestMenuNavegacion(unittest.TestCase):
-    def test_siete_opciones_abecedario_y_vocabulario(self) -> None:
+    def test_opciones_incluyen_practica(self) -> None:
         self.assertEqual(
             etiquetas_menu(),
             [
                 "Abecedario",
                 "Vocabulario",
+                "Práctica",
                 "Capturar plantillas",
                 "Biblioteca de señas",
                 "Configuración",
@@ -68,11 +70,15 @@ class TestMenuNavegacion(unittest.TestCase):
                 "Acerca de Mamatlatolli",
             ],
         )
-        self.assertEqual(len(OPCIONES_MENU), 7)
+        self.assertEqual(len(OPCIONES_MENU), 8)
         self.assertNotIn("Iniciar reconocimiento", etiquetas_menu())
         destinos = [d for d, _e, _s in OPCIONES_MENU]
         self.assertEqual(destinos[0], DESTINO_ABECEDARIO)
         self.assertEqual(destinos[1], DESTINO_VOCABULARIO)
+        self.assertEqual(destinos[2], DESTINO_PRACTICA)
+        _destino, _etiqueta, descripcion = OPCIONES_MENU[2]
+        self.assertIn("5 segundos", descripcion)
+        self.assertIn("récord", descripcion)
 
     def test_categoria_de_destino(self) -> None:
         self.assertEqual(categoria_de_destino(DESTINO_ABECEDARIO), "letra")
@@ -98,6 +104,8 @@ class TestMenuNavegacion(unittest.TestCase):
         self.assertIn("2b", TEXTO_ACERCA)
         self.assertIn("Abecedario", TEXTO_ACERCA)
         self.assertIn("Vocabulario", TEXTO_ACERCA)
+        self.assertIn("Práctica", TEXTO_ACERCA)
+        self.assertIn("récord", TEXTO_ACERCA)
         self.assertIn("DTW", TEXTO_ACERCA)
         self.assertIn("Lengua de Señas Mexicana", TEXTO_ACERCA)
         self.assertNotIn("Iniciar reconocimiento", TEXTO_ACERCA)
@@ -113,6 +121,9 @@ class TestMenuNavegacion(unittest.TestCase):
         nav.ir(DESTINO_ABECEDARIO)
         self.assertTrue(nav.usa_video())
         nav.ir(DESTINO_VOCABULARIO)
+        self.assertTrue(nav.usa_video())
+        self.assertFalse(nav.usa_demostracion())
+        nav.ir(DESTINO_PRACTICA)
         self.assertTrue(nav.usa_video())
         self.assertFalse(nav.usa_demostracion())
 

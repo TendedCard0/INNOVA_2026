@@ -284,6 +284,7 @@ RUTA_LOGO = RUTA_ASSETS / "logo.png"
 _ICONOS_MENU = (
     "abecedario",
     "vocabulario",
+    "practica",
     "capturar",
     "biblioteca",
     "configurar",
@@ -399,6 +400,15 @@ def _dibujar_glifo(
                 draw.rounded_rectangle(caja_f, radius=w * 0.08, fill=color)
             else:
                 draw.rounded_rectangle(caja_f, radius=w * 0.08, outline=color, width=grosor)
+        return
+
+    if nombre == "practica":
+        # Cronómetro: la letra hay que sostenerla antes de que cierre el aro.
+        draw.ellipse((x0, y0, x1, y1), outline=color, width=grosor)
+        cx = (x0 + x1) / 2
+        cy = (y0 + y1) / 2
+        draw.line((cx, cy, cx, y0 + h * 0.18), fill=color, width=grosor)
+        draw.line((cx, cy, x0 + w * 0.78, cy + h * 0.08), fill=color, width=grosor)
         return
 
     if nombre == "vocabulario":

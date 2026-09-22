@@ -12,7 +12,7 @@ import cv2
 from PIL import Image
 
 from innova import tema
-from innova.ajustes import Ajustes, guardar_ajustes
+from innova.ajustes import Ajustes, cargar_record_practica, guardar_ajustes, guardar_record_practica
 from innova.camara import CamaraNoDisponibleError
 from innova.config import (
     ALTO_VIDEO,
@@ -28,6 +28,13 @@ from innova.menu import OPCIONES_MENU, TEXTO_ACERCA
 from innova.overlay import frame_mensaje
 from innova.pipeline import PipelineVision, crear_pipeline
 from innova.plantillas import eliminar_plantilla, filtrar_inventario, inventario_plantillas
+from innova.practica import (
+    MENSAJE_SIN_LETRAS,
+    PartidaPractica,
+    VistaPractica,
+    letras_estaticas_disponibles,
+    texto_fin,
+)
 from innova.tema import (
     acento_de_indice,
     icono_menu,
@@ -359,7 +366,7 @@ class PantallaMenu(ctk.CTkFrame):
         pie.pack(fill="x", padx=24, pady=(4, 14))
         ctk.CTkLabel(
             pie,
-            text="Esc o Q para salir    ·    Abecedario (letras) y Vocabulario (palabras)",
+            text="Esc o Q para salir    ·    Abecedario, Vocabulario y Práctica",
             font=ctk.CTkFont(size=12),
             text_color=tema.COLOR_TEXTO_MUDO,
         ).pack(side="left")
@@ -389,6 +396,7 @@ class _PantallaConCamara(ctk.CTkFrame):
         subtitulo: str,
         reconocer: bool = True,
         categoria: str = CATEGORIA_TODAS,
+        texto_pie: str = "← Menú    ·    Esc o Q salen    ·    Space: seña con movimiento",
     ) -> None:
         super().__init__(master, fg_color=tema.COLOR_FONDO)
         self._modo_demo = modo_demo
@@ -443,10 +451,7 @@ class _PantallaConCamara(ctk.CTkFrame):
             command=self._iniciar_pipeline,
         )
 
-        _pie(
-            self,
-            "← Menú    ·    Esc o Q salen    ·    Space: seña con movimiento",
-        )
+        _pie(self, texto_pie)
 
         self._iniciar_pipeline()
         self.focus_set()
@@ -774,6 +779,266 @@ class PantallaReconocimiento(_PantallaConCamara):
             caja.insert("1.0", texto)
             caja.see("end")
         caja.configure(state="disabled")
+
+
+class PantallaPractica(_PantallaConCamara):
+    """Letra estática en grande, 5 segundos, puntos y récord personal."""
+
+    def __init__(
+        self,
+        master: Any,
+        *,
+        modo_demo: bool,
+        indice_camara: int,
+        ajustes: Ajustes,
+        on_volver: Callable[[], None],
+        on_record: Callable[[int], None] | None = None,
+    ) -> None:
+        self._on_record = on_record
+        self._letras = letras_estaticas_disponibles()
+        self._record_guardado = False
+        self._partida: PartidaPractica | None = None
+        if self._letras:
+            self._partida = PartidaPractica(self._letras, record=cargar_record_practica())
+        super().__init__(
+            master,
+            modo_demo=modo_demo,
+            indice_camara=indice_camara,
+            ajustes=ajustes,
+            on_volver=on_volver,
+            titulo=f"{NOMBRE_PRODUCTO} · Práctica",
+            subtitulo="Letras estáticas · 5 segundos · récord personal",
+            reconocer=True,
+            categoria=CATEGORIA_LETRA,
+            texto_pie="← Menú    ·    Esc o Q salen    ·    La seña debe quedar estable; un parpadeo no suma",
+        )
+
+    def _construir_lateral(self) -> None:
+        self.marco_juego = ctk.CTkFrame(self.lateral, fg_color="transparent")
+        self.marco_vacio = ctk.CTkFrame(self.lateral, fg_color="transparent")
+
+        ctk.CTkLabel(
+            self.marco_juego,
+            text="Seña esta letra",
+            font=ctk.CTkFont(size=13),
+            text_color=tema.COLOR_TEXTO_MUDO,
+        ).pack(anchor="w", padx=20, pady=(18, 0))
+        self.lbl_letra = ctk.CTkLabel(
+            self.marco_juego,
+            text="—",
+            font=ctk.CTkFont(size=84, weight="bold"),
+            text_color=tema.COLOR_ACENTO,
+        )
+        self.lbl_letra.pack(anchor="w", padx=20, pady=(0, 0))
+        self.lbl_tiempo = ctk.CTkLabel(
+            self.marco_juego,
+            text="5.0 s",
+            font=ctk.CTkFont(size=32, weight="bold"),
+            text_color=tema.COLOR_TEXTO,
+        )
+        self.lbl_tiempo.pack(anchor="w", padx=20, pady=(0, 8))
+        self.lbl_puntos = ctk.CTkLabel(
+            self.marco_juego,
+            text="Puntos: 0",
+            font=ctk.CTkFont(size=18, weight="bold"),
+            text_color=tema.COLOR_TEXTO,
+        )
+        self.lbl_puntos.pack(anchor="w", padx=20, pady=(0, 2))
+        self.lbl_record = ctk.CTkLabel(
+            self.marco_juego,
+            text="Récord: 0",
+            font=ctk.CTkFont(size=16),
+            text_color=tema.COLOR_TEXTO_MUDO,
+        )
+        self.lbl_record.pack(anchor="w", padx=20, pady=(0, 8))
+        self.lbl_sena = ctk.CTkLabel(
+            self.marco_juego,
+            text="Tu seña estable: —",
+            font=ctk.CTkFont(size=14),
+            text_color=tema.COLOR_TEXTO,
+            wraplength=310,
+            justify="left",
+        )
+        self.lbl_sena.pack(anchor="w", padx=20, pady=(0, 6))
+        self.lbl_mensaje = ctk.CTkLabel(
+            self.marco_juego,
+            text="Seña la letra y mantenla estable antes de que termine el tiempo.",
+            font=ctk.CTkFont(size=13),
+            text_color=tema.COLOR_TEXTO_MUDO,
+            wraplength=310,
+            justify="left",
+        )
+        self.lbl_mensaje.pack(anchor="w", padx=20, pady=(0, 8))
+
+        self.marco_fin = ctk.CTkFrame(self.marco_juego, fg_color="transparent")
+        ctk.CTkButton(
+            self.marco_fin,
+            text="Reintentar",
+            fg_color=tema.COLOR_ACENTO,
+            hover_color=tema.COLOR_ACENTO_HOVER,
+            text_color=tema.COLOR_TEXTO_INVERSO,
+            corner_radius=12,
+            command=self._reintentar,
+        ).pack(fill="x", pady=(0, 8))
+        ctk.CTkButton(
+            self.marco_fin,
+            text="Menú",
+            fg_color=tema.COLOR_CAMPO,
+            hover_color=tema.COLOR_BORDE,
+            text_color=tema.COLOR_TEXTO,
+            corner_radius=12,
+            command=self.cerrar_y_volver,
+        ).pack(fill="x")
+
+        ctk.CTkLabel(
+            self.marco_vacio,
+            text="Sin letras para practicar",
+            font=ctk.CTkFont(size=18, weight="bold"),
+            text_color=tema.COLOR_TEXTO,
+            wraplength=310,
+            justify="left",
+        ).pack(anchor="w", padx=20, pady=(22, 8))
+        ctk.CTkLabel(
+            self.marco_vacio,
+            text=MENSAJE_SIN_LETRAS,
+            font=ctk.CTkFont(size=14),
+            text_color=tema.COLOR_TEXTO_MUDO,
+            wraplength=310,
+            justify="left",
+        ).pack(anchor="w", padx=20, pady=(0, 12))
+        self.lbl_record_vacio = ctk.CTkLabel(
+            self.marco_vacio,
+            text=f"Récord: {cargar_record_practica()}",
+            font=ctk.CTkFont(size=16),
+            text_color=tema.COLOR_TEXTO,
+        )
+        self.lbl_record_vacio.pack(anchor="w", padx=20, pady=(0, 8))
+
+        if self._partida is None:
+            self.marco_vacio.pack(fill="both", expand=True)
+        else:
+            self.marco_juego.pack(fill="both", expand=True)
+            self._pintar(_vista_inicial(self._partida))
+
+        self.lbl_estado = ctk.CTkLabel(
+            self.lateral,
+            text="Manos: 0   ·   Cámara: —",
+            font=ctk.CTkFont(size=13),
+            text_color=tema.COLOR_TEXTO_MUDO,
+            wraplength=300,
+            justify="left",
+        )
+        self.lbl_estado.pack(anchor="w", padx=20, pady=(8, 12))
+
+    def _al_pipeline_listo(self) -> None:
+        if self._pipeline is not None:
+            self._pipeline.set_solo_estatico(True)
+            self._pipeline.reiniciar_estabilidad()
+
+    def _mostrar_error_camara(self) -> None:
+        if getattr(self, "lbl_mensaje", None) is not None and self._partida is not None:
+            self.lbl_mensaje.configure(text=MENSAJE_CAMARA_AUSENTE, text_color=tema.COLOR_ERROR)
+        self.lbl_estado.configure(text="Manos: 0   ·   Cámara: no disponible")
+        super()._mostrar_error_camara()
+
+    def _on_error_tick(self, exc: Exception) -> None:
+        if getattr(self, "lbl_mensaje", None) is not None:
+            self.lbl_mensaje.configure(text=f"Error al procesar: {exc}", text_color=tema.COLOR_ERROR)
+
+    def _on_procesado(self, procesado: Any) -> None:
+        n = len(procesado.manos)
+        self.lbl_estado.configure(text=f"Manos: {n}   ·   {procesado.fuente}")
+        if self._partida is None:
+            return
+        estable = procesado.resultado.etiqueta or "—"
+        self.lbl_sena.configure(text=f"Tu seña estable: {estable}")
+        if self._partida.terminada:
+            return
+        vista = self._partida.observar_resultado(time.monotonic(), procesado.resultado)
+        if vista.acierto and self._pipeline is not None:
+            self._pipeline.reiniciar_estabilidad()
+        self._pintar(vista)
+        if vista.terminado:
+            self._guardar_record(vista)
+
+    def _pintar(self, vista: VistaPractica) -> None:
+        self.lbl_letra.configure(
+            text=vista.letra,
+            text_color=tema.COLOR_ERROR if vista.terminado else tema.COLOR_ACENTO,
+        )
+        self.lbl_tiempo.configure(
+            text=f"{vista.restante_s:.1f} s",
+            text_color=_color_tiempo(vista.restante_s, terminado=vista.terminado),
+        )
+        self.lbl_puntos.configure(text=f"Puntos: {vista.puntuacion}")
+        self.lbl_record.configure(text=f"Récord: {vista.record}")
+        if vista.terminado:
+            color = tema.COLOR_OK if vista.nuevo_record else tema.COLOR_AVISO
+            self.lbl_mensaje.configure(text=texto_fin(vista), text_color=color)
+            if not self.marco_fin.winfo_ismapped():
+                self.marco_fin.pack(fill="x", padx=20, pady=(4, 8))
+            return
+        if vista.acierto:
+            self.lbl_mensaje.configure(text="¡Bien! +1", text_color=tema.COLOR_OK)
+            return
+        if time.monotonic() >= self._aviso_hasta:
+            self.lbl_mensaje.configure(
+                text="Seña la letra y mantenla estable antes de que termine el tiempo.",
+                text_color=tema.COLOR_TEXTO_MUDO,
+            )
+
+    def _guardar_record(self, vista: VistaPractica) -> None:
+        if self._record_guardado:
+            return
+        self._record_guardado = True
+        vigente = guardar_record_practica(vista.puntuacion)
+        if self._partida is not None:
+            self._partida.record = vigente
+        self.lbl_record.configure(text=f"Récord: {vigente}")
+        if self._on_record is not None:
+            self._on_record(vigente)
+
+    def _reintentar(self) -> None:
+        self._letras = letras_estaticas_disponibles()
+        self._record_guardado = False
+        if not self._letras:
+            self._partida = None
+            self.marco_juego.pack_forget()
+            if not self.marco_vacio.winfo_ismapped():
+                self.marco_vacio.pack(fill="both", expand=True)
+            self.lbl_record_vacio.configure(text=f"Récord: {cargar_record_practica()}")
+            return
+        self._partida = PartidaPractica(self._letras, record=cargar_record_practica())
+        self.marco_vacio.pack_forget()
+        if not self.marco_juego.winfo_ismapped():
+            self.marco_juego.pack(fill="both", expand=True)
+        if self.marco_fin.winfo_ismapped():
+            self.marco_fin.pack_forget()
+        if self._pipeline is not None:
+            self._pipeline.reiniciar_estabilidad()
+        self._pintar(_vista_inicial(self._partida))
+        self.lbl_sena.configure(text="Tu seña estable: —")
+
+
+def _vista_inicial(partida: PartidaPractica) -> VistaPractica:
+    return VistaPractica(
+        letra=partida.letra,
+        puntuacion=0,
+        record=partida.record,
+        restante_s=partida.duracion_s,
+        acierto=False,
+        terminado=False,
+        motivo=None,
+        nuevo_record=False,
+    )
+
+
+def _color_tiempo(restante: float, *, terminado: bool) -> str:
+    if terminado or restante < 1.0:
+        return tema.COLOR_ERROR
+    if restante < 2.0:
+        return tema.COLOR_AVISO
+    return tema.COLOR_TEXTO
 
 
 class PantallaCaptura(_PantallaConCamara):
@@ -1351,6 +1616,7 @@ class PantallaConfiguracion(ctk.CTkFrame):
             umbral_movimiento=self._base.umbral_movimiento,
             metrica=self.seg_metrica.get() or "euclidiana",
             tema=self._base.tema,
+            record_practica=self._base.record_practica,
         ).normalizado()
 
     def _al_cambiar_tema(self, modo: str) -> None:
@@ -1364,7 +1630,7 @@ class PantallaConfiguracion(ctk.CTkFrame):
         guardar_ajustes(aj)
         self._on_guardar(aj)
         self.lbl_estado.configure(
-            text="Ajustes guardados. Se aplican al volver a Abecedario o Vocabulario.",
+            text="Ajustes guardados. Se aplican al volver a Abecedario, Vocabulario o Práctica.",
             text_color=tema.COLOR_ACENTO,
         )
 

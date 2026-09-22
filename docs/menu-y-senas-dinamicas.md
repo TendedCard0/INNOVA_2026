@@ -15,12 +15,13 @@ El programa se llama **Mamatlatolli**. El uso diario son dos modos:
 
 Al abrir `python app.py` aparece el menú (español), con el logo oficial
 (`assets/logo.png`) centrado arriba —o un marco placeholder si el archivo
-no está— y siete tarjetas:
+no está— y ocho tarjetas:
 
 | Opción | Qué hace |
 | --- | --- |
 | **Abecedario** | Cámara en vivo, solo letras (estáticas y dinámicas). |
 | **Vocabulario** | Cámara en vivo, solo palabras. Usa mano, pose y rostro. Si aún no hay plantillas de palabra, muestra un estado vacío en español. |
+| **Práctica** | Letra estática al azar, 5 segundos, puntos y récord personal. Solo letras que ya capturaste; si no hay, un aviso en español. |
 | **Capturar plantillas** | Guardar una pose o una trayectoria; eliges Letra o Palabra. |
 | **Biblioteca de señas** | Listar, filtrar (`letra` / `palabra` / `todas`), probar o borrar. |
 | **Configuración** | Umbrales de confianza/estabilidad, sensibilidad al movimiento y apariencia (modo claro / modo oscuro). |
@@ -42,9 +43,28 @@ salir del menú. Lo mismo está en **Configuración**. La elección se guarda
 en `datos/config.json` (`"tema": "claro"` o `"tema": "oscuro"`) y
 Mamatlatolli la aplica al volver a abrir.
 
-`python app.py --demo` también abre el menú; *Abecedario* y
-*Vocabulario* usan entonces el video sintético. *Modo demostración*
+`python app.py --demo` también abre el menú; *Abecedario*,
+*Vocabulario* y *Práctica* usan entonces el video sintético. *Modo demostración*
 abre Abecedario sin cámara aunque no hayas pasado `--demo`.
+
+## Práctica
+
+**Práctica** no enseña un vocabulario ni trae palabras precargadas. Toma las
+plantillas estáticas de `categoria: "letra"` que ya están en
+`datos/plantillas/` y pide señar una, al azar, en **5 segundos**.
+
+- Acierto: la predicción **estable** (el mismo filtro de Abecedario, no la
+  estimación instantánea) es esa letra. Suma 1 punto, elige otra letra —sin
+  repetir la anterior si hay más de una— y reinicia el reloj.
+- Fallo: se acaba el tiempo, o la seña estable es otra letra. La partida
+  termina. **Reintentar** o **Menú**.
+- Récord: en `datos/config.json`, la clave `record_practica` solo se
+  actualiza si la puntuación es mayor que la guardada.
+
+Si no hay letras estáticas, la pantalla lo explica en español y remite a
+**Capturar plantillas** (Letra · Estática). Las plantillas dinámicas y las
+palabras no entran en esta partida. Práctica no usa DTW: compara la pose
+quieta.
 
 ## Cómo capturar
 

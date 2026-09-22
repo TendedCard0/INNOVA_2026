@@ -147,6 +147,8 @@ class ReconocedorEstatico:
         self.avisos_carga: list[str] = []
 
         self.forzar_dinamico = False
+        # Práctica compara solo poses estáticas: no entra a DTW automático.
+        self.solo_estatico = False
         self._buffer_forzado: list[FotogramaSecuencia] = []
         self._t0_forzado = 0.0
         self._pendiente_forzado = False
@@ -215,8 +217,24 @@ class ReconocedorEstatico:
         self.recargar_plantillas()
         return ruta
 
+    def set_solo_estatico(self, activo: bool) -> None:
+        """Si es True, ``predecir`` no graba ni compara trayectorias (DTW)."""
+        self.solo_estatico = bool(activo)
+        if self.solo_estatico:
+            self.forzar_dinamico = False
+            self._pendiente_forzado = False
+            self._gesto_auto = None
+            self._buffer_forzado = []
+            self._quietos = 0
+
+    def reiniciar_filtro(self) -> None:
+        """Olvida la seña comprometida para exigir una pose estable nueva."""
+        self._filtro.reiniciar()
+
     def set_forzar_dinamico(self, activo: bool) -> None:
         """Mantener True mientras el usuario pulsa el botón o Space."""
+        if self.solo_estatico:
+            return
         activo = bool(activo)
         if activo and not self.forzar_dinamico:
             self.forzar_dinamico = True
@@ -296,6 +314,9 @@ class ReconocedorEstatico:
         if self.categoria == CATEGORIA_PALABRA:
             pose, rostro = anotar_cuerpo(frame_bgr)
         self._anotar_historial(ahora, mano, pose, rostro)
+
+        if self.solo_estatico:
+            return self._predecir_estatico(manos, hay_mano, mov, pose, rostro)
 
         if self.forzar_dinamico:
             return self._durante_forzado(mano, hay_mano, mov, pose, rostro)

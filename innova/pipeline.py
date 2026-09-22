@@ -134,6 +134,20 @@ class PipelineVision:
         """Activa pose y rostro (captura de palabras) o los deja apagados (letras)."""
         self.usar_cuerpo = bool(activo)
 
+    def set_solo_estatico(self, activo: bool) -> None:
+        """Práctica: matching estático de letras, sin enrutado a DTW."""
+        rec = self.reconocedor
+        setter = getattr(rec, "set_solo_estatico", None)
+        if callable(setter):
+            setter(bool(activo))
+
+    def reiniciar_estabilidad(self) -> None:
+        """Reinicia el filtro para que la siguiente letra exija una pose nueva."""
+        rec = self.reconocedor
+        fn = getattr(rec, "reiniciar_filtro", None)
+        if callable(fn):
+            fn()
+
     def set_forzar_dinamico(self, activo: bool) -> None:
         rec = self.reconocedor
         setter = getattr(rec, "set_forzar_dinamico", None)

@@ -115,7 +115,7 @@ def _tk_disponible() -> bool:
 
 @unittest.skipUnless(_tk_disponible(), "requiere display gráfico y tkinter")
 class TestPantallaMenuTk(unittest.TestCase):
-    def test_menu_construye_siete_tarjetas_y_navega(self) -> None:
+    def test_menu_construye_tarjetas_y_navega(self) -> None:
         import customtkinter as ctk
 
         from innova.pantallas import MarcaMamatlatolli, PantallaMenu
@@ -127,7 +127,7 @@ class TestPantallaMenuTk(unittest.TestCase):
         destinos: list[str] = []
         try:
             pantalla = PantallaMenu(raiz, on_ir=destinos.append)
-            self.assertEqual(len(pantalla._tarjetas), 7)
+            self.assertEqual(len(pantalla._tarjetas), 8)
             marca = next(
                 w
                 for w in pantalla.winfo_children()[0].winfo_children()
@@ -135,15 +135,18 @@ class TestPantallaMenuTk(unittest.TestCase):
             )
             self.assertTrue(marca._es_logo_archivo)
             self.assertEqual(marca._logo_ctk._size, (MarcaMamatlatolli._LADO_LOGO,) * 2)
-            etiquetas = [OPCIONES_MENU[i][1] for i in range(7)]
+            etiquetas = [OPCIONES_MENU[i][1] for i in range(8)]
             self.assertEqual(etiquetas[0], "Abecedario")
             self.assertEqual(etiquetas[1], "Vocabulario")
+            self.assertEqual(etiquetas[2], "Práctica")
             self.assertNotIn("Iniciar reconocimiento", etiquetas)
             pantalla._tarjetas[0]._on_ir(pantalla._tarjetas[0]._destino)
             self.assertEqual(destinos, ["abecedario"])
             pantalla._tarjetas[1]._on_ir(pantalla._tarjetas[1]._destino)
             self.assertEqual(destinos[-1], "vocabulario")
-            pantalla._tarjetas[6]._on_ir(pantalla._tarjetas[6]._destino)
+            pantalla._tarjetas[2]._on_ir(pantalla._tarjetas[2]._destino)
+            self.assertEqual(destinos[-1], "practica")
+            pantalla._tarjetas[7]._on_ir(pantalla._tarjetas[7]._destino)
             self.assertEqual(destinos[-1], "acerca")
         finally:
             raiz.destroy()
@@ -364,9 +367,10 @@ class TestTemaEnVivo(unittest.TestCase):
                 self.assertEqual(ajustes.cargar_ajustes(ruta).tema, "claro")
                 raiz.mostrar_menu()
                 raiz.update()
-                self.assertEqual(len(raiz._pantalla._tarjetas), 7)
+                self.assertEqual(len(raiz._pantalla._tarjetas), 8)
                 self.assertIsNotNone(_widget_con_texto(raiz, "Abecedario"))
                 self.assertIsNotNone(_widget_con_texto(raiz, "Vocabulario"))
+                self.assertIsNotNone(_widget_con_texto(raiz, "Práctica"))
                 menu_oscuro = _widget_con_texto(raiz, "Modo oscuro")
                 self.assertIsNotNone(menu_oscuro)
                 assert menu_oscuro is not None
