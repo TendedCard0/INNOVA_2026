@@ -80,7 +80,8 @@ RUTA_ASSETS = Path(__file__).resolve().parent.parent / "assets"
 RUTA_LOGO = RUTA_ASSETS / "logo.png"
 
 _ICONOS_MENU = (
-    "reconocer",
+    "abecedario",
+    "vocabulario",
     "capturar",
     "biblioteca",
     "configurar",
@@ -204,21 +205,28 @@ def _dibujar_glifo(
     color = hex_a_rgb(acento) + (255,)
     grosor = max(3, int(min(w, h) * 0.10))
 
-    if nombre == "reconocer":
-        # Palmita: palma + cuatro dedos.
-        palma = (x0 + w * 0.18, y0 + h * 0.42, x1 - w * 0.18, y1 - h * 0.05)
-        draw.rounded_rectangle(palma, radius=w * 0.18, fill=color)
-        anchos = (0.12, 0.34, 0.56, 0.78)
-        altos = (0.08, 0.00, 0.10, 0.18)
-        dedo_w = w * 0.16
-        for ax, ay in zip(anchos, altos):
-            dx = x0 + w * ax
-            dy = y0 + h * ay
-            draw.rounded_rectangle(
-                (dx, dy, dx + dedo_w, y0 + h * 0.55),
-                radius=dedo_w / 2,
-                fill=color,
-            )
+    if nombre in {"abecedario", "reconocer"}:
+        # Tres fichas de letra (A, B, C).
+        fichas = (
+            (0.00, 0.22, 0.42, 0.78),
+            (0.30, 0.08, 0.72, 0.64),
+            (0.58, 0.28, 1.00, 0.84),
+        )
+        for i, (ax0, ay0, ax1, ay1) in enumerate(fichas):
+            caja_f = (x0 + w * ax0, y0 + h * ay0, x0 + w * ax1, y0 + h * ay1)
+            if i == 2:
+                draw.rounded_rectangle(caja_f, radius=w * 0.08, fill=color)
+            else:
+                draw.rounded_rectangle(caja_f, radius=w * 0.08, outline=color, width=grosor)
+        return
+
+    if nombre == "vocabulario":
+        # Tarjeta de glosa con tres renglones.
+        draw.rounded_rectangle((x0, y0, x1, y1), radius=w * 0.16, outline=color, width=grosor)
+        for rel in (0.32, 0.50, 0.68):
+            y = y0 + h * rel
+            x_fin = x1 - w * (0.18 if rel != 0.68 else 0.34)
+            draw.line((x0 + w * 0.18, y, x_fin, y), fill=color, width=grosor)
         return
 
     if nombre == "capturar":

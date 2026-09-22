@@ -6,8 +6,9 @@ Contrato estable para la UI:
     reconocedor.predecir(frame, manos) -> ResultadoReconocimiento
     reconocedor.predecir_dinamico(secuencia) -> ResultadoReconocimiento
 
-La letra *comprometida* (estable) va en `etiqueta`; la estimación del
-fotograma actual, en `etiqueta_cruda`.
+La seña *comprometida* (estable) va en `etiqueta`; la estimación del
+fotograma actual, en `etiqueta_cruda`. El reconocedor se acota con
+`categoria` (`letra` = Abecedario, `palabra` = Vocabulario).
 
 Enrutado por omisión: si la mano se mueve con claridad en ~0,4–0,8 s se
 compara la trayectoria con plantillas `tipo: dinamico` (DTW). Si está
@@ -46,17 +47,23 @@ from innova.config import (
 )
 from innova.detector import ManoDetectada
 from innova.dtw import confianza_dtw, mejor_plantilla_dtw, vectores_desde_secuencia
+from innova.cuerpo import anotar_cuerpo
 from innova.esquema import (
+    CATEGORIA_LETRA,
+    CATEGORIA_PALABRA,
+    CATEGORIA_TODAS,
     FotogramaSecuencia,
     ManoEsquema,
     MuestraLSM,
     SecuenciaEsquema,
     mano_desde_deteccion,
+    normalizar_categoria,
 )
 from innova.estabilidad import EstadoEstable, FiltroEstabilidad
 from innova.movimiento import DetectorMovimiento, EstadoMovimiento
 from innova.plantillas import (
     cargar_plantillas_con_errores,
+    filtrar_por_categoria,
     guardar_plantilla,
     plantillas_dinamicas,
     plantillas_estaticas,
@@ -103,8 +110,13 @@ class ReconocedorEstatico:
         filtro: FiltroEstabilidad | None = None,
         ajustes: Ajustes | None = None,
         detector_movimiento: DetectorMovimiento | None = None,
+        categoria: str = CATEGORIA_LETRA,
     ) -> None:
         self.ruta_plantillas = Path(ruta_plantillas) if ruta_plantillas else RUTA_PLANTILLAS
+        if categoria in (None, "", CATEGORIA_TODAS):
+            self.categoria = CATEGORIA_TODAS
+        else:
+            self.categoria = normalizar_categoria(categoria)
         self.ajustes = (ajustes or Ajustes()).normalizado()
         self.metrica = metrica or self.ajustes.metrica
         self._filtro = filtro or FiltroEstabilidad(
@@ -153,6 +165,7 @@ class ReconocedorEstatico:
     def recargar_plantillas(self) -> None:
         muestras, errores = cargar_plantillas_con_errores(self.ruta_plantillas)
         self.avisos_carga = errores
+        muestras = filtrar_por_categoria(muestras, self.categoria)
         self._plantillas = plantillas_estaticas(muestras)
         self._vectores = []
         for muestra in self._plantillas:
@@ -228,7 +241,6 @@ class ReconocedorEstatico:
         frame_bgr: np.ndarray,
         manos: list[ManoDetectada],
     ) -> ResultadoReconocimiento:
-        del frame_bgr
         ahora = time.monotonic()
         hay_mano = bool(manos)
         mano = _mano_principal(manos) if hay_mano else None
@@ -239,20 +251,20 @@ class ReconocedorEstatico:
         self._anotar_historial(ahora, mano)
 
         if self.forzar_dinamico:
-            return self._durante_forzado(mano, hay_mano, mov)
+            return self._durante_forzado(mano, hay_mano, mov, frame_bgr)
 
         if self._pendiente_forzado:
             return self._cerrar_forzado(hay_mano, mov)
 
         if self._gesto_auto is not None:
-            return self._durante_auto(mano, hay_mano, mov, ahora)
+            return self._durante_auto(mano, hay_mano, mov, ahora, frame_bgr)
 
         if (
             mov.en_movimiento
             and self._secuencias
             and ahora >= self._cooldown_hasta
         ):
-            return self._iniciar_auto(mano, hay_mano, mov, ahora)
+            return self._iniciar_auto(mano, hay_mano, mov, ahora, frame_bgr)
 
         return self._predecir_estatico(manos, hay_mano, mov)
 
@@ -265,7 +277,7 @@ class ReconocedorEstatico:
             return ResultadoReconocimiento(
                 etiqueta=ETIQUETA_DETECTANDO,
                 confianza=0.0,
-                mensaje="No hay plantillas dinámicas. Captúralas en «Capturar plantillas».",
+                mensaje=self._mensaje_sin_dinamicas(),
                 etiqueta_cruda=ETIQUETA_DETECTANDO,
                 confianza_cruda=0.0,
                 modo="dinamico",
@@ -331,7 +343,7 @@ class ReconocedorEstatico:
                 return ResultadoReconocimiento(
                     etiqueta=ETIQUETA_SIN_DETECCION,
                     confianza=0.0,
-                    mensaje="Sin manos en el encuadre · no hay plantillas",
+                    mensaje=f"Sin manos en el encuadre · {self._mensaje_banco_vacio()}",
                     etiqueta_cruda=ETIQUETA_SIN_DETECCION,
                     confianza_cruda=0.0,
                     modo="estatico",
@@ -340,7 +352,7 @@ class ReconocedorEstatico:
             return ResultadoReconocimiento(
                 etiqueta=ETIQUETA_DETECTANDO,
                 confianza=0.0,
-                mensaje="No hay plantillas. Ábrelo en «Capturar plantillas».",
+                mensaje=self._mensaje_banco_vacio(),
                 etiqueta_cruda=ETIQUETA_DETECTANDO,
                 confianza_cruda=0.0,
                 modo="estatico",
@@ -393,8 +405,9 @@ class ReconocedorEstatico:
         mano: ManoDetectada | None,
         hay_mano: bool,
         mov: EstadoMovimiento,
+        frame_bgr: np.ndarray,
     ) -> ResultadoReconocimiento:
-        foto = _fotograma_de(mano, time.monotonic() - self._t0_forzado)
+        foto = _fotograma_de(mano, time.monotonic() - self._t0_forzado, frame_bgr)
         if foto is not None:
             self._buffer_forzado.append(foto)
         n = len(self._buffer_forzado)
@@ -434,16 +447,18 @@ class ReconocedorEstatico:
         hay_mano: bool,
         mov: EstadoMovimiento,
         ahora: float,
+        frame_bgr: np.ndarray,
     ) -> ResultadoReconocimiento:
         self._filtro.reiniciar()
         self._t0_gesto = self._historial_vivo[0][0] if self._historial_vivo else ahora
         self._gesto_auto = []
         for t, esquema in self._historial_vivo:
+            pose, rostro = anotar_cuerpo(None)
             self._gesto_auto.append(
-                FotogramaSecuencia(t=t - self._t0_gesto, mano=esquema, pose=None, rostro=None)
+                FotogramaSecuencia(t=t - self._t0_gesto, mano=esquema, pose=pose, rostro=rostro)
             )
         if mano is not None and (not self._gesto_auto or self._gesto_auto[-1].mano is None):
-            foto = _fotograma_de(mano, ahora - self._t0_gesto)
+            foto = _fotograma_de(mano, ahora - self._t0_gesto, frame_bgr)
             if foto is not None:
                 self._gesto_auto.append(foto)
         self._quietos = 0
@@ -462,9 +477,10 @@ class ReconocedorEstatico:
         hay_mano: bool,
         mov: EstadoMovimiento,
         ahora: float,
+        frame_bgr: np.ndarray,
     ) -> ResultadoReconocimiento:
         assert self._gesto_auto is not None
-        foto = _fotograma_de(mano, ahora - self._t0_gesto)
+        foto = _fotograma_de(mano, ahora - self._t0_gesto, frame_bgr)
         if foto is not None:
             self._gesto_auto.append(foto)
 
@@ -548,15 +564,41 @@ class ReconocedorEstatico:
             return f"{extra} · d={dist:.3f} · {sufijo}{mov_txt}"
         return f"{extra} · {sufijo}{mov_txt}"
 
+    def _mensaje_banco_vacio(self) -> str:
+        if self.categoria == CATEGORIA_PALABRA:
+            return (
+                "Aún no hay plantillas de vocabulario. "
+                "Ábrelo en «Capturar plantillas» y elige Palabra."
+            )
+        return "No hay plantillas de letra. Ábrelo en «Capturar plantillas» y elige Letra."
 
-def _fotograma_de(mano: ManoDetectada | None, t: float) -> FotogramaSecuencia | None:
+    def _mensaje_sin_dinamicas(self) -> str:
+        if self.categoria == CATEGORIA_PALABRA:
+            return (
+                "No hay palabras dinámicas. Captúralas en «Capturar plantillas» "
+                "(Palabra · Dinámica)."
+            )
+        return "No hay letras dinámicas. Captúralas en «Capturar plantillas» (Letra · Dinámica)."
+
+
+def _fotograma_de(
+    mano: ManoDetectada | None,
+    t: float,
+    frame_bgr: np.ndarray | None = None,
+) -> FotogramaSecuencia | None:
     if mano is None:
         return None
     try:
         esquema = mano_desde_deteccion(mano)
     except Exception:  # noqa: BLE001
         return None
-    return FotogramaSecuencia(t=float(max(0.0, t)), mano=esquema, pose=None, rostro=None)
+    pose, rostro = anotar_cuerpo(frame_bgr)
+    return FotogramaSecuencia(
+        t=float(max(0.0, t)),
+        mano=esquema,
+        pose=pose,
+        rostro=rostro,
+    )
 
 
 def _texto_crudo(etiqueta_cruda: str | None, hay_mano: bool) -> str:
@@ -576,6 +618,7 @@ def crear_reconocedor(
     metrica: str | None = None,
     filtro: FiltroEstabilidad | None = None,
     ajustes: Ajustes | None = None,
+    categoria: str = CATEGORIA_LETRA,
 ) -> ReconocedorLSM:
     """Fábrica única que la UI usa para obtener el reconocedor."""
     aj = ajustes.normalizado() if ajustes is not None else None
@@ -585,4 +628,5 @@ def crear_reconocedor(
         metrica=metrica_final,
         filtro=filtro,
         ajustes=aj,
+        categoria=categoria,
     )

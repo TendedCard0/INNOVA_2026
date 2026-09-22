@@ -38,6 +38,7 @@ class TestPipelineDemo(unittest.TestCase):
                 data = json.loads(ruta.read_text(encoding="utf-8"))
                 self.assertEqual(data["etiqueta"], "A")
                 self.assertEqual(data["tipo"], "estatico")
+                self.assertEqual(data["categoria"], "letra")
                 self.assertIsNone(data["pose"])
                 self.assertIsNone(data["rostro"])
                 self.assertIsNone(data["secuencia"])
@@ -60,6 +61,7 @@ class TestPipelineDemo(unittest.TestCase):
                 data = json.loads(ruta.read_text(encoding="utf-8"))
                 self.assertEqual(data["etiqueta"], "J")
                 self.assertEqual(data["tipo"], "dinamico")
+                self.assertEqual(data["categoria"], "letra")
                 self.assertIsNone(data["pose"])
                 self.assertIsNone(data["rostro"])
                 self.assertGreaterEqual(len(data["secuencia"]["fotogramas"]), 6)
@@ -69,6 +71,25 @@ class TestPipelineDemo(unittest.TestCase):
                 crudo = pipeline.reconocedor.predecir_dinamico(muestra_desde_dict(data))
                 self.assertEqual(crudo.etiqueta, "J")
                 self.assertGreater(crudo.confianza, 0.7)
+            finally:
+                pipeline.cerrar()
+
+
+    def test_guardar_plantilla_palabra(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            pipeline = crear_pipeline(modo_demo=True, ruta_plantillas=tmp, categoria="palabra")
+            try:
+                self.assertIsNotNone(pipeline.procesar())
+                ruta = pipeline.guardar_plantilla("hola", notas="demo", categoria="palabra")
+                data = json.loads(ruta.read_text(encoding="utf-8"))
+                self.assertEqual(data["etiqueta"], "HOLA")
+                self.assertEqual(data["categoria"], "palabra")
+                self.assertEqual(pipeline.n_plantillas, 1)
+                rec_letra = crear_pipeline(modo_demo=True, ruta_plantillas=tmp, categoria="letra")
+                try:
+                    self.assertEqual(rec_letra.n_plantillas, 0)
+                finally:
+                    rec_letra.cerrar()
             finally:
                 pipeline.cerrar()
 

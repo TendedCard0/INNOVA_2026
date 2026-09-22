@@ -8,7 +8,13 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from innova.config import RUTA_PLANTILLAS
-from innova.esquema import ErrorEsquema, MuestraLSM, muestra_desde_dict
+from innova.esquema import (
+    CATEGORIA_TODAS,
+    ErrorEsquema,
+    MuestraLSM,
+    muestra_desde_dict,
+    normalizar_categoria,
+)
 
 
 @dataclass
@@ -51,9 +57,10 @@ def guardar_plantilla(muestra: MuestraLSM, directorio: Path | None = None) -> Pa
     destino = asegurar_directorio(directorio)
     seguro = nombre_archivo_seguro(muestra.etiqueta)
     ts = _marca_archivo(muestra.metadatos.marca_tiempo)
-    ruta = destino / f"{seguro}_{muestra.tipo}_{ts}.json"
+    cat = muestra.categoria or "letra"
+    ruta = destino / f"{seguro}_{cat}_{muestra.tipo}_{ts}.json"
     if ruta.exists():
-        ruta = destino / f"{seguro}_{muestra.tipo}_{ts}_{id(muestra) % 10000}.json"
+        ruta = destino / f"{seguro}_{cat}_{muestra.tipo}_{ts}_{id(muestra) % 10000}.json"
     return guardar_muestra(muestra, ruta)
 
 
@@ -101,6 +108,28 @@ def plantillas_estaticas(muestras: list[MuestraLSM]) -> list[MuestraLSM]:
 
 def plantillas_dinamicas(muestras: list[MuestraLSM]) -> list[MuestraLSM]:
     return [m for m in muestras if m.tipo == "dinamico" and m.secuencia is not None]
+
+
+def filtrar_por_categoria(
+    muestras: list[MuestraLSM],
+    categoria: str | None = CATEGORIA_TODAS,
+) -> list[MuestraLSM]:
+    """Filtra por ``letra`` / ``palabra``. ``todas`` o vacío no recorta."""
+    if categoria in (None, "", CATEGORIA_TODAS):
+        return list(muestras)
+    cat = normalizar_categoria(categoria)
+    return [m for m in muestras if m.categoria == cat]
+
+
+def filtrar_inventario(
+    items: list[InventarioPlantilla],
+    categoria: str | None = CATEGORIA_TODAS,
+) -> list[InventarioPlantilla]:
+    """Igual que ``filtrar_por_categoria`` sobre el inventario de la biblioteca."""
+    if categoria in (None, "", CATEGORIA_TODAS):
+        return list(items)
+    cat = normalizar_categoria(categoria)
+    return [item for item in items if item.muestra.categoria == cat]
 
 
 def nombre_archivo_seguro(etiqueta: str) -> str:
