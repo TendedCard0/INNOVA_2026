@@ -13,8 +13,9 @@ El programa se llama **Mamatlatolli**. El uso diario son dos modos:
 
 ## Menú principal
 
-Al abrir `python app.py` aparece el menú (español), con el logo o un
-marco placeholder centrado y siete tarjetas:
+Al abrir `python app.py` aparece el menú (español), con el logo oficial
+(`assets/logo.png`) centrado arriba —o un marco placeholder si el archivo
+no está— y siete tarjetas:
 
 | Opción | Qué hace |
 | --- | --- |
@@ -34,7 +35,8 @@ cierra si estás escribiendo una etiqueta).
 
 La cromática está en `innova/tema.py` (naranja, lima e índigo), con paleta
 clara y paleta oscura. El menú muestra tarjetas en dos columnas (la última,
-*Acerca de*, ocupa el ancho) y un hueco para `assets/logo.png`. Abajo, el
+*Acerca de*, ocupa el ancho) y el logo oficial (`assets/logo.png`) centrado
+arriba. Si el archivo no está, se usa un marco placeholder. Abajo, el
 control **Apariencia** cambia entre **Modo claro** y **Modo oscuro** sin
 salir del menú. Lo mismo está en **Configuración**. La elección se guarda
 en `datos/config.json` (`"tema": "claro"` o `"tema": "oscuro"`) y

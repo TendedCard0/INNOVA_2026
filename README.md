@@ -4,7 +4,7 @@ Prototipo de escritorio para **reconocer Lengua de Señas Mexicana (LSM)** a par
 
 **Mamatlatolli** abre un menú principal de tarjetas: **Abecedario** (letras) y **Vocabulario** (palabras) por separado, más captura de plantillas, biblioteca, configuración y modo demostración.
 
-El menú usa acentos tríadicos (**naranja**, **lima** e **índigo**) sobre fondo claro u oscuro. Arriba va el logo: si existe `assets/logo.png` se muestra; si no, un marco placeholder (el isotipo aún está en desarrollo).
+El menú usa acentos tríadicos (**naranja**, **lima** e **índigo**) sobre fondo claro u oscuro. El logo oficial vive en `assets/logo.png` (PNG transparente) y se muestra centrado arriba. Si ese archivo no está, el menú usa un marco placeholder.
 
 > Proyecto estudiantil — Instituto Tecnológico de San Juan del Río.
 
@@ -170,7 +170,7 @@ innova/
 docs/esquema-datos.md      Esquema JSON (español)
 docs/menu-y-senas-dinamicas.md  Menú, captura DTW, auto vs botón
 datos/plantillas/          Plantillas JSON (locales, no se versionan)
-assets/logo.png            Isotipo (opcional; si falta, el menú usa un placeholder)
+assets/logo.png            Logo oficial (PNG transparente). Si falta, el menú usa un placeholder
 ```
 
 ## Hoja de ruta

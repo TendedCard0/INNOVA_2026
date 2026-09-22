@@ -2,8 +2,8 @@
 
 Esquema de color (rueda tríadica): naranja, lima y azul real / índigo.
 Los acentos se ajustan para leerse sobre el fondo de cada modo.
-El logo definitivo aún no existe: si hay ``assets/logo.png`` se usa;
-si no, un marco placeholder fácil de sustituir.
+El logo oficial vive en ``assets/logo.png``. Si el archivo no está,
+se usa un marco placeholder fácil de sustituir.
 """
 
 from __future__ import annotations
