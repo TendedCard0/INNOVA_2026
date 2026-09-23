@@ -10,6 +10,7 @@ from innova.ajustes import Ajustes, cargar_ajustes, guardar_ajustes
 from innova.menu import (
     DESTINO_ABECEDARIO,
     DESTINO_CAPTURA,
+    DESTINO_CONFIGURACION,
     DESTINO_MENU,
     DESTINO_PRACTICA,
     DESTINO_VOCABULARIO,
@@ -19,6 +20,7 @@ from innova.menu import (
     categoria_de_destino,
     etiquetas_menu,
 )
+from innova.textos import titulo_pantalla, titulo_ventana
 
 
 class TestAjustes(unittest.TestCase):
@@ -111,6 +113,25 @@ class TestMenuNavegacion(unittest.TestCase):
         self.assertIn("DTW", TEXTO_ACERCA)
         self.assertIn("Lengua de Señas Mexicana", TEXTO_ACERCA)
         self.assertNotIn("Iniciar reconocimiento", TEXTO_ACERCA)
+        self.assertIn("vuelven al menú", TEXTO_ACERCA)
+
+    def test_escape_vuelve_y_en_el_menu_sale(self) -> None:
+        nav = Navegador()
+        self.assertEqual(nav.accion_escape(), "salir")
+        nav.ir(DESTINO_CONFIGURACION)
+        self.assertEqual(nav.accion_escape(), "volver")
+        nav.ir(DESTINO_ABECEDARIO)
+        self.assertEqual(nav.accion_escape(), "volver")
+        nav.volver()
+        self.assertEqual(nav.accion_escape(), "salir")
+
+    def test_titulos_coinciden_con_las_tarjetas(self) -> None:
+        for destino, etiqueta, _desc in OPCIONES_MENU:
+            self.assertEqual(titulo_pantalla(destino), etiqueta)
+            self.assertTrue(titulo_ventana(destino).startswith("Mamatlatolli"))
+            self.assertIn(etiqueta.split(" ")[0], titulo_ventana(destino))
+        self.assertEqual(titulo_ventana(DESTINO_MENU), "Mamatlatolli")
+        self.assertEqual(titulo_pantalla("practica"), "Mini juego")
 
     def test_demo_no_usa_camara(self) -> None:
         nav = Navegador()

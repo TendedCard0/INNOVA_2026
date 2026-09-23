@@ -37,12 +37,12 @@ OPCIONES_MENU: tuple[tuple[str, str, str], ...] = (
     (
         DESTINO_ABECEDARIO,
         "Abecedario",
-        "Letras LSM: pose estática y trayectoria con DTW.",
+        "Letras de la LSM, quietas o con movimiento.",
     ),
     (
         DESTINO_VOCABULARIO,
         "Vocabulario",
-        "Palabras LSM: mano, pose corporal y rostro.",
+        "Palabras de la LSM: mano, cuerpo y rostro.",
     ),
     (
         DESTINO_PRACTICA,
@@ -52,27 +52,27 @@ OPCIONES_MENU: tuple[tuple[str, str, str], ...] = (
     (
         DESTINO_CAPTURA,
         "Capturar plantillas",
-        "Guardar una seña de letra o de palabra (estática o dinámica).",
+        "Guarda una letra o una palabra, quieta o con movimiento.",
     ),
     (
         DESTINO_BIBLIOTECA,
         "Biblioteca de señas",
-        "Listar, filtrar, probar o borrar las plantillas guardadas.",
+        "Revisa, prueba o borra las señas que ya guardaste.",
     ),
     (
         DESTINO_CONFIGURACION,
         "Configuración",
-        "Confianza, estabilidad y sensibilidad al movimiento.",
+        "Apariencia, y qué tan estricta es la lectura.",
     ),
     (
         DESTINO_DEMO,
         "Modo demostración",
-        "Vista de Abecedario sin cámara física.",
+        "Abecedario con un video de ejemplo, sin cámara.",
     ),
     (
         DESTINO_ACERCA,
         "Acerca de Mamatlatolli",
-        "Qué es el prototipo, LSM y las fases del proyecto.",
+        "Qué es Mamatlatolli y cómo reconoce la LSM.",
     ),
 )
 
@@ -105,7 +105,8 @@ TEXTO_ACERCA = (
     "matching estático y al DTW. Abecedario sigue con solo las manos. Si el modelo "
     "no carga o la cámara no ve el cuerpo, la palabra se reconoce con la mano.\n\n"
     "Proyecto estudiantil — Instituto Tecnológico de San Juan del Río.\n"
-    "Esc o Q cierran la aplicación."
+    "Esc, o el botón ← Menú, vuelven al menú. En el menú, Esc o Q cierran "
+    "Mamatlatolli. Q no cierra si estás escribiendo."
 )
 
 
@@ -150,3 +151,7 @@ class Navegador:
 
     def usa_demostracion(self) -> bool:
         return self.actual == DESTINO_DEMO
+
+    def accion_escape(self) -> str:
+        """Esc hace lo mismo que ← Menú: volver, o salir si ya estás en el menú."""
+        return "salir" if self.en_menu() else "volver"

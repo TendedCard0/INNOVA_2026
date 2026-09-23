@@ -36,6 +36,7 @@ from innova.caracteristicas import (
     vector_pose_opcional,
     vector_rostro_opcional,
 )
+from innova import textos
 from innova.config import (
     COOLDOWN_DINAMICO_S,
     ETIQUETA_DETECTANDO,
@@ -345,7 +346,7 @@ class ReconocedorEstatico:
             return ResultadoReconocimiento(
                 etiqueta=ETIQUETA_DETECTANDO,
                 confianza=0.0,
-                mensaje=self._mensaje_sin_dinamicas(),
+                mensaje=textos.mensaje_sin_dinamicas(self.categoria),
                 etiqueta_cruda=ETIQUETA_DETECTANDO,
                 confianza_cruda=0.0,
                 modo="dinamico",
@@ -355,11 +356,11 @@ class ReconocedorEstatico:
                 consulta = vectores_fusionados_desde_secuencia(secuencia)
             else:
                 consulta = vectores_desde_secuencia(secuencia)
-        except ErrorCaracteristicas as exc:
+        except ErrorCaracteristicas:
             return ResultadoReconocimiento(
                 etiqueta=ETIQUETA_DETECTANDO,
                 confianza=0.0,
-                mensaje=f"Secuencia no usable ({exc}).",
+                mensaje=textos.mensaje_sena_no_leida(),
                 etiqueta_cruda=ETIQUETA_DETECTANDO,
                 confianza_cruda=0.0,
                 modo="dinamico",
@@ -368,10 +369,7 @@ class ReconocedorEstatico:
             return ResultadoReconocimiento(
                 etiqueta=ETIQUETA_DETECTANDO,
                 confianza=0.0,
-                mensaje=(
-                    f"Seña demasiado corta ({consulta.shape[0]} fotogramas; "
-                    f"mínimo {MIN_FOTOGRAMAS_DINAMICO})."
-                ),
+                mensaje=textos.mensaje_sena_corta(),
                 etiqueta_cruda=ETIQUETA_DETECTANDO,
                 confianza_cruda=0.0,
                 modo="dinamico",
@@ -382,18 +380,16 @@ class ReconocedorEstatico:
             return ResultadoReconocimiento(
                 etiqueta=ETIQUETA_DETECTANDO,
                 confianza=0.0,
-                mensaje="No se pudo comparar con las plantillas dinámicas.",
+                mensaje=textos.mensaje_sin_comparar(),
                 etiqueta_cruda=ETIQUETA_DETECTANDO,
                 confianza_cruda=0.0,
                 modo="dinamico",
             )
         conf = confianza_dtw(dist, self.metrica, saturacion=SATURACION_DTW)
-        n = self.n_dinamicas
-        sufijo = f"{n} plantilla" + ("s" if n != 1 else "") + " dinámica" + ("s" if n != 1 else "")
         return ResultadoReconocimiento(
             etiqueta=etiqueta,
             confianza=conf,
-            mensaje=f"DTW · d={dist:.3f} · {conf:.0%} · {sufijo}",
+            mensaje=textos.mensaje_sena_movimiento(etiqueta),
             etiqueta_cruda=etiqueta,
             confianza_cruda=conf,
             distancia=dist,
@@ -416,7 +412,7 @@ class ReconocedorEstatico:
                 return ResultadoReconocimiento(
                     etiqueta=ETIQUETA_SIN_DETECCION,
                     confianza=0.0,
-                    mensaje=f"Sin manos en el encuadre · {self._mensaje_banco_vacio()}",
+                    mensaje=textos.mensaje_sin_manos(),
                     etiqueta_cruda=ETIQUETA_SIN_DETECCION,
                     confianza_cruda=0.0,
                     modo="estatico",
@@ -425,7 +421,7 @@ class ReconocedorEstatico:
             return ResultadoReconocimiento(
                 etiqueta=ETIQUETA_DETECTANDO,
                 confianza=0.0,
-                mensaje=self._mensaje_banco_vacio(),
+                mensaje=textos.mensaje_banco_vacio(self.categoria),
                 etiqueta_cruda=ETIQUETA_DETECTANDO,
                 confianza_cruda=0.0,
                 modo="estatico",
@@ -438,15 +434,15 @@ class ReconocedorEstatico:
                 return ResultadoReconocimiento(
                     etiqueta=ETIQUETA_SIN_DETECCION,
                     confianza=0.0,
-                    mensaje="Sin manos en el encuadre",
+                    mensaje=textos.mensaje_sin_manos(),
                     etiqueta_cruda=ETIQUETA_SIN_DETECCION,
                     modo="estatico",
                     en_movimiento=False,
                 )
             extra = (
-                "Solo hay plantillas dinámicas: mueve la mano o pulsa «Seña con movimiento»."
+                textos.mensaje_solo_dinamicas()
                 if self._secuencias
-                else "Esperando seña estable…"
+                else textos.mensaje_esperando_estable()
             )
             return ResultadoReconocimiento(
                 etiqueta=ETIQUETA_DETECTANDO,
@@ -465,7 +461,7 @@ class ReconocedorEstatico:
         return ResultadoReconocimiento(
             etiqueta=estable.etiqueta,
             confianza=estable.confianza,
-            mensaje=self._mensaje_estatico(estable, hay_mano=hay_mano, dist=dist, mov=mov),
+            mensaje=self._mensaje_estatico(estable, hay_mano=hay_mano),
             etiqueta_cruda=_texto_crudo(etiqueta_cruda, hay_mano),
             confianza_cruda=conf_cruda,
             distancia=None if dist == float("inf") else dist,
@@ -484,11 +480,10 @@ class ReconocedorEstatico:
         foto = _fotograma_de(mano, time.monotonic() - self._t0_forzado, pose, rostro)
         if foto is not None:
             self._buffer_forzado.append(foto)
-        n = len(self._buffer_forzado)
         return ResultadoReconocimiento(
             etiqueta=ETIQUETA_DETECTANDO,
             confianza=0.0,
-            mensaje=f"Grabando seña con movimiento… {n} fotogramas (suelta para reconocer)",
+            mensaje=textos.mensaje_grabando(),
             etiqueta_cruda=ETIQUETA_DETECTANDO,
             confianza_cruda=0.0,
             modo="grabando",
@@ -539,7 +534,7 @@ class ReconocedorEstatico:
         return ResultadoReconocimiento(
             etiqueta=ETIQUETA_DETECTANDO,
             confianza=0.0,
-            mensaje="Movimiento detectado · grabando trayectoria (DTW)…",
+            mensaje=textos.mensaje_movimiento_detectado(),
             etiqueta_cruda=ETIQUETA_DETECTANDO,
             modo="grabando",
             en_movimiento=True,
@@ -567,11 +562,10 @@ class ReconocedorEstatico:
 
         cerrar = self._quietos >= FOTOGRAMAS_REPOSO_DINAMICO or duracion >= MAX_DURACION_DINAMICA_S
         if not cerrar:
-            n = len(self._gesto_auto)
             return ResultadoReconocimiento(
                 etiqueta=ETIQUETA_DETECTANDO,
                 confianza=0.0,
-                mensaje=f"Seña en movimiento… {n} fotogramas",
+                mensaje=textos.mensaje_siguiendo_movimiento(),
                 etiqueta_cruda=ETIQUETA_DETECTANDO,
                 modo="grabando",
                 en_movimiento=mov.en_movimiento,
@@ -591,7 +585,7 @@ class ReconocedorEstatico:
         self._cooldown_hasta = ahora + COOLDOWN_DINAMICO_S
         if self._ultimo_dinamico is not None and hay_mano:
             hold = self._ultimo_dinamico
-            hold.mensaje = "Trayectoria poco clara · " + (resultado.mensaje or "")
+            hold.mensaje = textos.mensaje_trayectoria_poco_clara()
             hold.en_movimiento = mov.en_movimiento
             return hold
         resultado.en_movimiento = mov.en_movimiento
@@ -605,7 +599,7 @@ class ReconocedorEstatico:
     def _comprometer_dinamico(self, resultado: ResultadoReconocimiento) -> None:
         self._ultimo_dinamico = resultado
         self._cooldown_hasta = time.monotonic() + COOLDOWN_DINAMICO_S
-        resultado.mensaje = f"Seña dinámica comprometida: {resultado.etiqueta} · {resultado.confianza:.0%}"
+        resultado.mensaje = textos.mensaje_dinamica_lista(resultado.etiqueta)
         # El filtro estático no debe pelear con este compromiso en el siguiente fotograma.
         self._filtro.reiniciar()
 
@@ -629,37 +623,12 @@ class ReconocedorEstatico:
         estable: EstadoEstable,
         *,
         hay_mano: bool,
-        dist: float,
-        mov: EstadoMovimiento,
     ) -> str:
-        extra = estable.mensaje
+        if estable.mensaje:
+            return estable.mensaje
         if not hay_mano:
-            return extra or "Sin manos en el encuadre"
-        n_e = self.n_estaticas
-        n_d = self.n_dinamicas
-        sufijo = f"{n_e} estática{'s' if n_e != 1 else ''}"
-        if n_d:
-            sufijo += f" · {n_d} dinámica{'s' if n_d != 1 else ''}"
-        mov_txt = f" · movimiento {mov.puntuacion:.2f}"
-        if dist != float("inf"):
-            return f"{extra} · d={dist:.3f} · {sufijo}{mov_txt}"
-        return f"{extra} · {sufijo}{mov_txt}"
-
-    def _mensaje_banco_vacio(self) -> str:
-        if self.categoria == CATEGORIA_PALABRA:
-            return (
-                "Aún no hay plantillas de vocabulario. "
-                "Ábrelo en «Capturar plantillas» y elige Palabra."
-            )
-        return "No hay plantillas de letra. Ábrelo en «Capturar plantillas» y elige Letra."
-
-    def _mensaje_sin_dinamicas(self) -> str:
-        if self.categoria == CATEGORIA_PALABRA:
-            return (
-                "No hay palabras dinámicas. Captúralas en «Capturar plantillas» "
-                "(Palabra · Dinámica)."
-            )
-        return "No hay letras dinámicas. Captúralas en «Capturar plantillas» (Letra · Dinámica)."
+            return textos.mensaje_sin_manos()
+        return textos.mensaje_esperando_estable()
 
 
 def _fotograma_de(

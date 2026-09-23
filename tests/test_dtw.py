@@ -149,7 +149,8 @@ class TestReconocedorDinamico(unittest.TestCase):
         r = self.rec.predecir_dinamico(_muestra_barrido("J", "x", n=14))
         self.assertEqual(r.etiqueta, "J")
         self.assertGreater(r.confianza, 0.7)
-        self.assertIn("dtw", r.mensaje.lower())
+        self.assertIn("movimiento", r.mensaje.lower())
+        self.assertNotIn("dtw", r.mensaje.lower())
         self.assertEqual(self.rec.n_dinamicas, 2)
 
     def test_secuencia_corta_no_compromete(self) -> None:

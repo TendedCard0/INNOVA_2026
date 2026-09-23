@@ -6,6 +6,8 @@ Prototipo de escritorio para **reconocer Lengua de Señas Mexicana (LSM)** a par
 
 El menú usa acentos tríadicos (**naranja**, **lima** e **índigo**) sobre fondo claro u oscuro. El logo oficial vive en `assets/logo.png` (PNG transparente) y se muestra centrado arriba, sin repetir el nombre ni el eslogan: ya van en el PNG. Si ese archivo no está, el menú usa un marco placeholder con el nombre. La ventana y, en Windows, la barra de tareas usan la marca (la M con la mano) de `assets/icono.png` y `assets/icono.ico`.
 
+Si la biblioteca está vacía, la demo igual se entiende: Abecedario, Vocabulario, Mini juego, Capturar plantillas y Biblioteca de señas dicen en español qué hacer (ir a **Capturar plantillas**). Los avisos de cámara, seña guardada, acierto y tiempo agotado no muestran jerga ni comandos. **Esc** y **← Menú** regresan al menú; en el menú, **Esc** o **Q** cierran Mamatlatolli. Los títulos de la ventana coinciden con las tarjetas, y Configuración usa el mismo control de modo claro / oscuro que el menú.
+
 > Proyecto estudiantil — Instituto Tecnológico de San Juan del Río.
 
 ## ¿Qué hace hoy? (Abecedario y Vocabulario)
@@ -112,7 +114,7 @@ Menú → **Mini juego**. No hay una lista de palabras ni plantillas de fábrica
 2. **Inicio** muestra la letra y arranca el **cronómetro circular** de **5 segundos**, con la cuenta numérica y un tic-tac suave.
 3. Seña esa letra con la mano, quieta, frente a la cámara. Un parpadeo no cuenta: tiene que estabilizarse el mismo filtro que usa Abecedario.
 4. Si aciertas a tiempo, sumas según la rapidez: **1000** (menos de 1 s), **700** (de 1 s a menos de 3 s) o **500** (de 3 s a menos de 5 s). Suena el acierto, sale otra letra (sin repetir la anterior, si hay más de una) y el reloj vuelve a 5 segundos. Los puntos se acumulan.
-5. A los **5 segundos** sin acierto, o si la seña estable es otra letra, suena el error, el tic-tac se detiene y la partida vuelve al botón **Inicio**. **Menú** (o Esc / Q) sale en cualquier momento. Si esa partida superó el récord guardado, suena una vez el récord nuevo.
+5. A los **5 segundos** sin acierto, o si la seña estable es otra letra, suena el error, el tic-tac se detiene y la partida vuelve al botón **Inicio**. **← Menú** o Esc regresan al menú; Q cierra Mamatlatolli. Si esa partida superó el récord guardado, suena una vez el récord nuevo.
 6. Solo se conserva el **récord** personal (`record_practica` en `datos/config.json`). Una puntuación más baja no lo reemplaza.
 
 Los efectos están en `assets/sonidos/` (WAV sintetizados en el propio proyecto, sin audio de terceros). En Windows se oyen con `winsound`, sin FFmpeg. En Linux y macOS hace falta `ffplay`, `paplay` o `aplay`. Si no hay salida de audio, Mini juego sigue igual, en silencio.
@@ -139,9 +141,10 @@ Recomendaciones:
 
 | Tecla | Acción |
 | --- | --- |
-| `Esc` o `Q` | Cerrar Mamatlatolli (Q no cierra si estás escribiendo) |
+| `Esc` | Vuelve al menú. En el menú, cierra Mamatlatolli |
+| `Q` | Cierra Mamatlatolli (no cierra si estás escribiendo) |
 | `Space` (mantener) | Grabar / reconocer una seña con movimiento |
-| Botón *← Menú* | Volver al menú principal |
+| Botón *← Menú* | Vuelve al menú principal (lo mismo que Esc fuera del menú) |
 | Botón *Reintentar cámara* | Volver a buscar un dispositivo si no se encontró |
 | Botón *Seña con movimiento* | Forzar grabación dinámica (clic para empezar y terminar) |
 

@@ -22,6 +22,7 @@ from innova.plantillas import (
     filtrar_por_categoria,
     plantillas_estaticas,
 )
+from innova.textos import DETALLE_MINIJUEGO_VACIO as MENSAJE_SIN_LETRAS
 
 DURACION_RONDA_S = 5.0
 # Rapidez del acierto estable: menos de 1 s, de 1 s a menos de 3 s, de 3 s a menos de 5 s.
@@ -33,12 +34,6 @@ UMBRAL_MEDIO_S = 3.0
 
 MOTIVO_TIEMPO = "tiempo"
 MOTIVO_FALLA = "falla"
-
-MENSAJE_SIN_LETRAS = (
-    "Aún no hay letras estáticas. En «Capturar plantillas» elige Letra y "
-    "Estática, y guarda las señas que quieras jugar. Mamatlatolli no trae "
-    "una lista de palabras: Mini juego usa solo las letras que tú captures."
-)
 
 _MARCADORES = frozenset(
     {
@@ -157,12 +152,12 @@ class VistaPractica:
 def texto_fin(vista: VistaPractica) -> str:
     """Copia en español para el cierre de la partida."""
     if vista.motivo == MOTIVO_FALLA:
-        que = "La seña estable no era esa letra."
+        que = "Esa no era la letra. La partida se detiene aquí."
     else:
         que = "Se acabó el tiempo."
     if vista.nuevo_record:
-        return f"{que} ¡Nuevo récord: {vista.record}!"
-    return f"{que} Puntos: {vista.puntuacion}. Récord: {vista.record}."
+        return f"{que} ¡Nuevo récord: {vista.record} puntos!"
+    return f"{que} Llevas {vista.puntuacion} puntos. El récord sigue en {vista.record}."
 
 
 SONIDO_ACIERTO = "acierto"

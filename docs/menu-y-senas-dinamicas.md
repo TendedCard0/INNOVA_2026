@@ -36,8 +36,9 @@ no se leería. Las ocho tarjetas:
 Ya no existe la tarjeta única «Iniciar reconocimiento»: mezclar letras
 y palabras en un solo modo confundía el banco.
 
-Cada pantalla tiene **← Menú**. `Esc` o `Q` cierran la aplicación (Q no
-cierra si estás escribiendo una etiqueta).
+Cada pantalla tiene **← Menú**. `Esc` hace lo mismo y vuelve al menú.
+En el menú, `Esc` o `Q` cierran Mamatlatolli (Q no cierra si estás escribiendo
+una etiqueta).
 
 La cromática está en `innova/tema.py` (naranja, lima e índigo), con paleta
 clara y paleta oscura. El menú muestra tarjetas en dos columnas (la última,
@@ -69,7 +70,7 @@ un aro que se vacía, en la cuenta numérica y en un tic-tac suave.
   Los puntos se acumulan.
 - Fallo: se cumplen los 5 segundos, o la seña estable es otra letra. Suena el
   error, se detiene el tic-tac y la partida vuelve al botón **Inicio**.
-  **Menú**, Esc y Q salen en cualquier momento, sin arrancar una ronda.
+  **← Menú** o Esc vuelven al menú; Q cierra Mamatlatolli. Si esa partida superó el récord guardado, suena una vez el récord nuevo.
 - Récord: en `datos/config.json`, la clave `record_practica` solo se
   actualiza si la puntuación es mayor que la guardada. Ese momento suena una
   sola vez, no en cada acierto.
