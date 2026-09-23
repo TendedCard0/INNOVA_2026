@@ -28,7 +28,7 @@ no se leería. Las ocho tarjetas:
 | **Vocabulario** | Cámara en vivo, solo palabras. Usa mano, pose y rostro. Si aún no hay plantillas de palabra, muestra un estado vacío en español. |
 | **Mini juego** | Letra estática al azar tras pulsar Inicio, cronómetro de 5 segundos y puntos por rapidez (1000 / 700 / 500). Solo letras que ya capturaste; si no hay, un aviso en español. |
 | **Capturar plantillas** | Guardar una pose o una trayectoria; eliges Letra o Palabra. |
-| **Biblioteca de señas** | Listar, filtrar (`letra` / `palabra` / `todas`), probar o borrar. |
+| **Biblioteca de señas** | Listar, filtrar (`letra` / `palabra` / `todas`), probar, borrar, exportar o importar un archivo `.mamatlatolli`. |
 | **Configuración** | Umbrales de confianza/estabilidad, sensibilidad al movimiento y apariencia (modo claro / modo oscuro). |
 | **Modo demostración** | Vista de Abecedario sin cámara (`--demo`). |
 | **Acerca de Mamatlatolli** | LSM, fases del prototipo y créditos. |

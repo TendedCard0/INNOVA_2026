@@ -57,7 +57,7 @@ OPCIONES_MENU: tuple[tuple[str, str, str], ...] = (
     (
         DESTINO_BIBLIOTECA,
         "Biblioteca de señas",
-        "Revisa, prueba o borra las señas que ya guardaste.",
+        "Revisa, prueba, borra o llévalas a otra computadora.",
     ),
     (
         DESTINO_CONFIGURACION,
@@ -94,6 +94,9 @@ TEXTO_ACERCA = (
     "Si se acaba el tiempo, o la seña estable es otra letra, la partida termina "
     "y solo se guarda el récord (la puntuación más alta) en datos/config.json. "
     "No hay una lista de palabras ni plantillas precargadas.\n\n"
+    "En Biblioteca puedes exportar las señas a un archivo e importarlas en "
+    "otra computadora, sin volver a capturarlas. Si una seña ya existe, "
+    "Mamatlatolli pregunta si la reemplazas o si solo agregas las nuevas.\n\n"
     "Las letras estáticas (A, B, C…) se comparan fotograma a fotograma. Las que "
     "llevan trayectoria (J, Ñ, Z…) se graban como secuencia y se reconocen con "
     "Dynamic Time Warping. Si la mano se mueve con claridad durante ~0,4–0,8 s, "

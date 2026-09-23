@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import time
 from dataclasses import replace
-from tkinter import messagebox
+from pathlib import Path
+from tkinter import filedialog, messagebox
 from typing import Any, Callable, Optional
 
 import customtkinter as ctk
@@ -27,6 +28,15 @@ from innova.config import (
 from innova.esquema import CATEGORIA_LETRA, CATEGORIA_PALABRA, CATEGORIA_TODAS
 from innova.menu import OPCIONES_MENU, TEXTO_ACERCA
 from innova.overlay import frame_mensaje
+from innova.paquete import (
+    POLITICA_REEMPLAZAR,
+    POLITICA_SOLO_NUEVAS,
+    ErrorPaquete,
+    aplicar_importacion,
+    exportar_biblioteca,
+    leer_paquete,
+    resumir_conflicto,
+)
 from innova.pipeline import PipelineVision, crear_pipeline
 from innova.plantillas import eliminar_plantilla, filtrar_inventario, inventario_plantillas
 from innova.practica import (
@@ -1569,6 +1579,112 @@ class PantallaCaptura(_PantallaConCamara):
         self._mostrar_aviso_vacio(self.aviso_vacio, n_e + n_d == 0)
 
 
+class DialogoPoliticaImportacion(ctk.CTkToplevel):
+    """Pregunta corta: reemplazar las señas que coinciden, o solo agregar las nuevas."""
+
+    def __init__(self, master: Any, *, en_comun: int, nuevas: int) -> None:
+        super().__init__(master)
+        self.eleccion: str | None = None
+        self.title(NOMBRE_PRODUCTO)
+        self.resizable(False, False)
+        self.configure(fg_color=tema.COLOR_FONDO)
+        self.protocol("WM_DELETE_WINDOW", self._cancelar)
+
+        marco = ctk.CTkFrame(self, fg_color="transparent")
+        marco.pack(fill="both", expand=True, padx=22, pady=18)
+        ctk.CTkLabel(
+            marco,
+            text=textos.TITULO_CONFLICTO_IMPORTAR,
+            font=ctk.CTkFont(size=18, weight="bold"),
+            text_color=tema.COLOR_TEXTO,
+            wraplength=500,
+            justify="left",
+            anchor="w",
+        ).pack(anchor="w", pady=(0, 8))
+        ctk.CTkLabel(
+            marco,
+            text=textos.texto_conflicto_importar(en_comun, nuevas),
+            font=ctk.CTkFont(size=13),
+            text_color=tema.COLOR_TEXTO,
+            wraplength=500,
+            justify="left",
+            anchor="w",
+        ).pack(anchor="w", pady=(0, 14))
+
+        self.btn_reemplazar = ctk.CTkButton(
+            marco,
+            text=textos.ETIQUETA_REEMPLAZAR,
+            height=40,
+            fg_color=tema.COLOR_ACENTO,
+            hover_color=tema.COLOR_ACENTO_HOVER,
+            text_color=tema.COLOR_TEXTO_INVERSO,
+            font=ctk.CTkFont(size=14, weight="bold"),
+            corner_radius=12,
+            command=lambda: self._elegir(POLITICA_REEMPLAZAR),
+        )
+        self.btn_reemplazar.pack(fill="x", pady=(0, 8))
+        self.btn_solo_nuevas = ctk.CTkButton(
+            marco,
+            text=textos.ETIQUETA_SOLO_NUEVAS,
+            height=40,
+            fg_color=tema.COLOR_CAMPO,
+            hover_color=tema.COLOR_BORDE,
+            text_color=tema.COLOR_TEXTO,
+            font=ctk.CTkFont(size=14, weight="bold"),
+            corner_radius=12,
+            border_width=1,
+            border_color=tema.COLOR_BORDE,
+            command=lambda: self._elegir(POLITICA_SOLO_NUEVAS),
+        )
+        self.btn_solo_nuevas.pack(fill="x", pady=(0, 8))
+        self.btn_cancelar = ctk.CTkButton(
+            marco,
+            text=textos.ETIQUETA_CANCELAR_IMPORTAR,
+            height=36,
+            fg_color="transparent",
+            hover_color=tema.COLOR_CAMPO,
+            text_color=tema.COLOR_TEXTO_MUDO,
+            corner_radius=12,
+            command=self._cancelar,
+        )
+        self.btn_cancelar.pack(fill="x")
+
+        self.update_idletasks()
+        ancho, alto = 560, max(self.winfo_reqheight(), 420)
+        try:
+            px = master.winfo_rootx() + max(0, (master.winfo_width() - ancho) // 2)
+            py = master.winfo_rooty() + max(0, (master.winfo_height() - alto) // 2)
+        except Exception:  # noqa: BLE001
+            px, py = 80, 80
+        self.geometry(f"{ancho}x{alto}+{px}+{py}")
+        self.transient(master)
+        self.lift()
+        self.focus_force()
+
+    def _elegir(self, politica: str) -> None:
+        self.eleccion = politica
+        self._cerrar()
+
+    def _cancelar(self) -> None:
+        self.eleccion = None
+        self._cerrar()
+
+    def _cerrar(self) -> None:
+        try:
+            self.grab_release()
+        except Exception:  # noqa: BLE001
+            pass
+        self.destroy()
+
+
+def preguntar_politica_importacion(master: Any, *, en_comun: int, nuevas: int) -> str | None:
+    """Devuelve ``reemplazar``, ``solo_nuevas`` o ``None`` si se cancela."""
+    dialogo = DialogoPoliticaImportacion(master, en_comun=en_comun, nuevas=nuevas)
+    dialogo.grab_set()
+    master.wait_window(dialogo)
+    return dialogo.eleccion
+
+
 class PantallaBiblioteca(ctk.CTkFrame):
     def __init__(
         self,
@@ -1603,6 +1719,59 @@ class PantallaBiblioteca(ctk.CTkFrame):
             ancho=96,
         )
         self.seg_filtro.pack(side="left")
+
+        traslado = ctk.CTkFrame(self, fg_color="transparent")
+        traslado.pack(fill="x", padx=28, pady=(4, 2))
+        ctk.CTkLabel(
+            traslado,
+            text=textos.AYUDA_TRASLADO,
+            text_color=tema.COLOR_TEXTO_MUDO,
+            font=ctk.CTkFont(size=13),
+            wraplength=760,
+            justify="left",
+            anchor="w",
+        ).pack(anchor="w")
+        acciones = ctk.CTkFrame(traslado, fg_color="transparent")
+        acciones.pack(anchor="w", pady=(8, 0))
+        self.btn_exportar = ctk.CTkButton(
+            acciones,
+            text=textos.ETIQUETA_EXPORTAR,
+            height=36,
+            width=140,
+            fg_color=tema.COLOR_CAMPO,
+            hover_color=tema.COLOR_BORDE,
+            text_color=tema.COLOR_TEXTO,
+            font=ctk.CTkFont(size=14, weight="bold"),
+            corner_radius=12,
+            border_width=1,
+            border_color=tema.COLOR_BORDE,
+            command=self._exportar,
+        )
+        self.btn_exportar.pack(side="left", padx=(0, 8))
+        self.btn_importar = ctk.CTkButton(
+            acciones,
+            text=textos.ETIQUETA_IMPORTAR,
+            height=36,
+            width=140,
+            fg_color=tema.COLOR_ACENTO,
+            hover_color=tema.COLOR_ACENTO_HOVER,
+            text_color=tema.COLOR_TEXTO_INVERSO,
+            font=ctk.CTkFont(size=14, weight="bold"),
+            corner_radius=12,
+            command=self._importar,
+        )
+        self.btn_importar.pack(side="left")
+        self.lbl_traslado = ctk.CTkLabel(
+            traslado,
+            text="",
+            text_color=tema.COLOR_OK,
+            font=ctk.CTkFont(size=13),
+            wraplength=760,
+            justify="left",
+            anchor="w",
+        )
+        self.lbl_traslado.pack(anchor="w", pady=(6, 0))
+
         self.lbl_resumen = ctk.CTkLabel(
             self,
             text="",
@@ -1710,6 +1879,101 @@ class PantallaBiblioteca(ctk.CTkFrame):
             corner_radius=10,
             command=lambda p=item.ruta, e=muestra.etiqueta: self._eliminar(p, e),
         ).pack(side="right", padx=4, pady=10)
+
+    def _avisar_traslado(self, texto: str, *, tono: str) -> None:
+        colores = {
+            "ok": tema.COLOR_OK,
+            "aviso": tema.COLOR_AVISO,
+            "error": tema.COLOR_ERROR,
+        }
+        self.lbl_traslado.configure(text=texto, text_color=colores.get(tono, tema.COLOR_TEXTO))
+
+    def _exportar(self) -> None:
+        items, _errores = inventario_plantillas(self._ruta)
+        if not items:
+            self._avisar_traslado(textos.MENSAJE_EXPORTAR_VACIO, tono="aviso")
+            messagebox.showinfo(NOMBRE_PRODUCTO, textos.MENSAJE_EXPORTAR_VACIO, parent=self.winfo_toplevel())
+            return
+        ruta = filedialog.asksaveasfilename(
+            parent=self.winfo_toplevel(),
+            title=textos.TITULO_DIALOGO_EXPORTAR,
+            defaultextension=".mamatlatolli",
+            filetypes=[
+                ("Paquete de señas de Mamatlatolli", "*.mamatlatolli"),
+                ("Un solo archivo de texto", "*.json"),
+            ],
+            initialfile="senas-mamatlatolli.mamatlatolli",
+        )
+        if not ruta:
+            return
+        destino = Path(ruta)
+        if destino.name.endswith(".mamatlatolli.mamatlatolli"):
+            destino = destino.with_name(destino.name[: -len(".mamatlatolli")])
+        self._exportar_hacia(destino)
+
+    def _exportar_hacia(self, ruta: Path) -> None:
+        try:
+            resultado = exportar_biblioteca(self._ruta, ruta)
+        except ErrorPaquete as exc:
+            aviso = str(exc) == textos.MENSAJE_EXPORTAR_VACIO
+            self._avisar_traslado(str(exc), tono="aviso" if aviso else "error")
+            if aviso:
+                messagebox.showinfo(NOMBRE_PRODUCTO, str(exc), parent=self.winfo_toplevel())
+            else:
+                messagebox.showerror(NOMBRE_PRODUCTO, str(exc), parent=self.winfo_toplevel())
+            return
+        texto = textos.mensaje_exportacion_lista(resultado.conteo, resultado.no_leidas)
+        self._avisar_traslado(texto, tono="ok")
+        messagebox.showinfo(NOMBRE_PRODUCTO, texto, parent=self.winfo_toplevel())
+
+    def _importar(self) -> None:
+        ruta = filedialog.askopenfilename(
+            parent=self.winfo_toplevel(),
+            title=textos.TITULO_DIALOGO_IMPORTAR,
+            filetypes=[
+                ("Paquete de señas de Mamatlatolli", "*.mamatlatolli"),
+                ("Un solo archivo de texto", "*.json"),
+                ("Todos los archivos", "*.*"),
+            ],
+        )
+        if not ruta:
+            return
+        self._importar_desde(Path(ruta))
+
+    def _importar_desde(self, ruta: Path, politica: str | None = None) -> None:
+        try:
+            paquete = leer_paquete(ruta)
+        except ErrorPaquete as exc:
+            self._avisar_traslado(str(exc), tono="error")
+            messagebox.showerror(NOMBRE_PRODUCTO, str(exc), parent=self.winfo_toplevel())
+            return
+        conflicto = resumir_conflicto(self._ruta, paquete)
+        elegida = politica
+        if conflicto.en_comun and elegida is None:
+            elegida = preguntar_politica_importacion(
+                self.winfo_toplevel(),
+                en_comun=conflicto.en_comun,
+                nuevas=conflicto.nuevas,
+            )
+            if elegida is None:
+                self._avisar_traslado("No importé nada.", tono="aviso")
+                return
+        if elegida is None:
+            elegida = POLITICA_REEMPLAZAR
+        try:
+            resultado = aplicar_importacion(self._ruta, paquete, elegida)
+        except ErrorPaquete as exc:
+            self._avisar_traslado(str(exc), tono="error")
+            messagebox.showerror(NOMBRE_PRODUCTO, str(exc), parent=self.winfo_toplevel())
+            return
+        texto = textos.mensaje_importacion_lista(
+            agregadas=resultado.agregadas,
+            reemplazadas=resultado.reemplazadas,
+            omitidas=resultado.omitidas,
+        )
+        self._avisar_traslado(texto, tono="ok")
+        self._recargar()
+        messagebox.showinfo(NOMBRE_PRODUCTO, texto, parent=self.winfo_toplevel())
 
     def _eliminar(self, ruta, etiqueta: str) -> None:
         if not messagebox.askyesno(

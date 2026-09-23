@@ -181,3 +181,51 @@ características.)
 En una captura real de palabra cada fotograma lleva su `mano` y, si se
 detectan, `pose` y `rostro`. Cómo grabar esas secuencias desde el menú está en
 [`menu-y-senas-dinamicas.md`](menu-y-senas-dinamicas.md).
+
+## Paquete para llevar las señas (`.mamatlatolli`)
+
+La biblioteca se puede copiar de un equipo a otro sin volver a capturar.
+El archivo no es una base de datos ni se sincroniza: es un paquete local.
+La lectura y la escritura viven en `innova/paquete.py`.
+
+Extensión preferida: **`.mamatlatolli`** (ZIP). También se acepta un solo
+JSON con los mismos campos y las muestras dentro de `plantillas`.
+
+### `manifiesto.json`
+
+| Campo | Tipo | Notas |
+| --- | --- | --- |
+| `formato` | string | Siempre `"mamatlatolli-plantillas"`. Si no coincide, el archivo se rechaza. |
+| `version` | string | Versión **del paquete**, hoy `"1.0"`. No es la `version` de cada muestra. Otra versión se rechaza. |
+| `producto` | string | `"Mamatlatolli"`. |
+| `creado` | string ISO-8601 | Cuándo se exportó, en UTC. |
+| `conteo` | número | Cuántas señas trae. Tiene que coincidir con los archivos; si no, el paquete se considera incompleto. |
+| `letras` / `palabras` | número | Conteos informativos. |
+| `quietas` / `con_movimiento` | número | Conteos informativos. |
+| `idioma` | string | Código de la lengua de señas. Hoy `"lsm"`. Gancho para otras lenguas; no filtra ni sincroniza. |
+| `nombre_idioma` | string | Hoy `"Lengua de Señas Mexicana"`. |
+| `idioma_glosa` | string | Idioma en que está escrita la glosa. Hoy `"es-MX"`. |
+| `notas` | string | Texto libre, puede ir vacío. |
+| `archivos` | lista de rutas | Dentro del ZIP: `plantillas/0001_A_letra_estatico.json`, etc. |
+
+Los campos que esta versión no conoce se ignoran, para poder sumar metadata
+sin romper los paquetes `"1.0"`. Una `version` nueva solo se acepta cuando
+Mamatlatolli la agregue a la lista de versiones compatibles.
+
+### Señas que coinciden
+
+Al importar, dos señas son la misma si coinciden:
+
+- la glosa (`etiqueta`, sin importar mayúsculas);
+- la categoría (`letra` o `palabra`);
+- si es quieta (`estatico`) o con movimiento (`dinamico`).
+
+Varias tomas de esa seña forman un solo grupo.
+
+En Biblioteca, si hay grupos en común, un diálogo ofrece **Reemplazar las
+que ya tengo** o **Solo agregar las nuevas**. En la terminal, `python -m
+innova.importar` reemplaza por omisión; `--solo-nuevas` deja los grupos
+existentes intactos. Las señas que no vienen en el archivo no se borran.
+
+Un archivo dañado, que no es un paquete, incompleto, de otra versión, o
+con una seña ilegible, se rechaza entero: la biblioteca no cambia.

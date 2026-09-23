@@ -18,7 +18,7 @@ Si la biblioteca está vacía, la demo igual se entiende: Abecedario, Vocabulari
 4. Compara una pose quieta con **plantillas estáticas** (vectores de landmarks normalizados). En palabras, la distancia mezcla mano, pose y rostro; si falta el cuerpo o la cara, esa parte se omite.
 5. Si la mano se mueve con claridad ~0,4–0,8 s —o si mantienes **Seña con movimiento** / **Space**— compara la **trayectoria** con plantillas dinámicas de esa categoría mediante **DTW**. En palabras, cada fotograma de la secuencia puede llevar pose y rostro.
 6. Aplica un **filtro de estabilidad** antes de comprometer una seña (las dinámicas se confirman al terminar el gesto, no en cada fotograma).
-7. Permite **organizar** el banco (captura Letra/Palabra × estática/dinámica; biblioteca con filtro letra | palabra | todas).
+7. Permite **organizar** el banco (captura Letra/Palabra × estática/dinámica; biblioteca con filtro letra | palabra | todas) y **llevarlo a otra computadora** (Exportar / Importar un archivo `.mamatlatolli`).
 8. En Vocabulario dibuja un esqueleto y puntos del rostro con los colores del tema (índigo, lima, naranja).
 9. **Mini juego** espera a que pulses **Inicio**: entonces muestra una letra estática que ya capturaste y arranca un cronómetro circular de **5 segundos**. La seña estable suma **1000** puntos si llega en menos de 1 s, **700** entre 1 y 3 s, y **500** de 3 s a menos de 5 s. Un acierto pasa solo a la siguiente letra. A los 5 s, o si la seña estable es otra letra, la partida termina y vuelve a **Inicio**. En `datos/config.json` se guarda únicamente el **récord** (la puntuación más alta).
 
@@ -106,6 +106,44 @@ El reconocedor **no** descarga conjuntos enormes ni entrena una red. Tú (o quie
 3. Pulsa **Seña con movimiento** (o mantén **Space**), haz el gesto y suelta.
 4. El archivo lleva `categoria`, `tipo: dinamico` y `secuencia`. En **Palabra**, cada fotograma puede traer `pose` y `rostro`. En **Letra** siguen en `null`.
 
+## Llevar las señas a otra computadora
+
+Mamatlatolli no trae un banco de fábrica ni una cuenta en la nube. Si ya capturaste en un equipo y quieres usar las mismas señas en otro, expórtalas e impórtalas.
+
+1. En el equipo donde están las señas: menú → **Biblioteca de señas** → **Exportar…**.
+2. Guarda el archivo (por omisión `senas-mamatlatolli.mamatlatolli`) y cópialo a la otra computadora.
+3. Allá: **Biblioteca de señas** → **Importar…** y elige ese archivo.
+
+Si el archivo trae una letra o palabra que ya existe en este equipo —el mismo nombre, y quieta o con movimiento igual que la tuya—, Mamatlatolli pregunta:
+
+- **Reemplazar las que ya tengo.** Esas señas pasan a ser las del archivo. Varias tomas de la misma seña se cambian juntas. El resto de la biblioteca no se borra.
+- **Solo agregar las nuevas.** No toca las que ya tienes.
+
+Si no hay coincidencias, las agrega sin preguntar. Un archivo dañado, incompleto o de una versión que esta copia no entiende se rechaza con un aviso en español y **no** modifica la biblioteca.
+
+En la terminal, sin ventana, la misma operación reemplaza las coincidencias si no dices lo contrario:
+
+```bash
+python -m innova.exportar senas.mamatlatolli
+python -m innova.importar senas.mamatlatolli
+python -m innova.importar senas.mamatlatolli --solo-nuevas
+```
+
+`--desde` y `--hacia` apuntan a otra carpeta si no quieres usar `datos/plantillas/`. Si el nombre termina en `.json`, el exportador escribe un solo archivo de texto con el mismo contenido.
+
+### Formato del archivo
+
+`.mamatlatolli` es un ZIP:
+
+| Pieza | Qué es |
+| --- | --- |
+| `manifiesto.json` | `formato` (`mamatlatolli-plantillas`), `version` del paquete (hoy `"1.0"`), `producto`, fecha `creado`, conteos, `idioma` (`lsm`), `nombre_idioma`, `idioma_glosa` (`es-MX`), `notas` y la lista `archivos`. |
+| `plantillas/*.json` | Cada seña, con el mismo esquema que `datos/plantillas/` (`version` de la muestra `"1.0"`). |
+
+`idioma` e `idioma_glosa` quedan en el archivo para un banco futuro de lenguas de señas. Hoy no hay sincronización ni varias lenguas: solo se copian las señas locales.
+
+Un paquete `"1.0"` puede traer campos de más; Mamatlatolli los ignora. Otra `version` del paquete se rechaza hasta que el programa sepa leerla. El detalle del manifiesto está en [`docs/esquema-datos.md`](docs/esquema-datos.md).
+
 ## Mini juego
 
 Menú → **Mini juego**. No hay una lista de palabras ni plantillas de fábrica: la partida usa las letras estáticas (`categoria: letra`, tipo estática) que guardaste en **Capturar plantillas**.
@@ -184,6 +222,9 @@ innova/
   movimiento.py            Detector de movimiento (auto-DTW)
   ajustes.py               datos/config.json
   plantillas.py            Leer/escribir/borrar y filtrar datos/plantillas/
+  paquete.py               Exportar e importar un archivo .mamatlatolli
+  exportar.py              python -m innova.exportar
+  importar.py              python -m innova.importar
   estabilidad.py           Umbral + voto temporal + histéresis
   reconocimiento.py        crear_reconocedor() / estático + predecir_dinamico()
   overlay.py               Landmarks, conexiones y recuadro
