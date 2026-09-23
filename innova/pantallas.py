@@ -986,6 +986,8 @@ class PantallaPractica(_PantallaConCamara):
                 self.marco_fin.pack(fill="x", padx=20, pady=(4, 8))
             return
         if vista.acierto:
+            # El acierto dura un fotograma; el aviso se queda un momento para leerse.
+            self._aviso_hasta = time.monotonic() + 1.2
             self.lbl_mensaje.configure(
                 text=f"¡Bien! +{vista.puntos_obtenidos}",
                 text_color=tema.COLOR_OK,
