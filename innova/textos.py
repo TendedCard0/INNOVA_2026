@@ -53,7 +53,7 @@ SUBTITULO_VOCABULARIO_DEMO = "Video de ejemplo · palabras de la LSM."
 SUBTITULO_DEMO = "Abecedario con un video de ejemplo, sin cámara real."
 SUBTITULO_MINIJUEGO = "Seña la letra antes de que se acabe el tiempo."
 SUBTITULO_CAPTURA = "Guarda una letra o una palabra, quieta o con movimiento."
-SUBTITULO_BIBLIOTECA = "Las señas que ya guardaste en este equipo."
+SUBTITULO_BIBLIOTECA = "Las señas de este equipo. Puedes llevarlas a otra computadora."
 SUBTITULO_CONFIG = "Apariencia y qué tan estricta es la lectura de la seña."
 SUBTITULO_ACERCA = "Lengua de Señas Mexicana, en la computadora del salón."
 
@@ -228,7 +228,8 @@ def texto_vacio_biblioteca(filtro: str) -> tuple[str, str]:
     return (
         "La biblioteca está vacía",
         "Todavía no hay señas en este equipo. Ve a «Capturar plantillas» "
-        "y guarda una letra o una palabra.",
+        "y guarda una letra o una palabra, o pulsa «Importar…» si ya las tienes "
+        "en otra computadora.",
     )
 
 
@@ -392,3 +393,117 @@ def banner_demo() -> str:
 
 def banner_grabando() -> str:
     return "Grabando la seña…"
+
+
+AYUDA_TRASLADO = (
+    "Exporta un archivo para llevar estas señas a otra computadora. "
+    "Allá, en Biblioteca, pulsa Importar."
+)
+ETIQUETA_EXPORTAR = "Exportar…"
+ETIQUETA_IMPORTAR = "Importar…"
+TITULO_DIALOGO_EXPORTAR = "Exportar señas de Mamatlatolli"
+TITULO_DIALOGO_IMPORTAR = "Importar señas de Mamatlatolli"
+TITULO_CONFLICTO_IMPORTAR = "Ya tienes algunas de estas señas"
+ETIQUETA_REEMPLAZAR = "Reemplazar las que ya tengo"
+ETIQUETA_SOLO_NUEVAS = "Solo agregar las nuevas"
+ETIQUETA_CANCELAR_IMPORTAR = "Cancelar"
+
+MENSAJE_EXPORTAR_VACIO = (
+    "Todavía no hay señas para exportar. Captura algunas en «Capturar plantillas» "
+    "y vuelve a intentarlo."
+)
+MENSAJE_ARCHIVO_DANADO = (
+    "No pude abrir ese archivo. Elige un paquete de señas de Mamatlatolli "
+    "que no esté dañado."
+)
+MENSAJE_NO_ES_PAQUETE = "Este archivo no es un paquete de señas de Mamatlatolli."
+MENSAJE_PAQUETE_INCOMPLETO = (
+    "A este archivo le falta información. Puede que esté incompleto "
+    "o que no sea un paquete de señas de Mamatlatolli."
+)
+MENSAJE_VERSION_INCOMPATIBLE = (
+    "Este archivo de señas se hizo con una versión de Mamatlatolli que esta copia "
+    "todavía no entiende. Pide el archivo otra vez o actualiza el programa."
+)
+MENSAJE_SENA_ILEGIBLE = (
+    "Una de las señas de este archivo no se pudo leer. No importé nada, "
+    "para no dejar la biblioteca a medias."
+)
+MENSAJE_PAQUETE_SIN_SENAS = "Este archivo no trae señas."
+MENSAJE_NO_SE_PUDO_GUARDAR_ARCHIVO = (
+    "No pude guardar el archivo. Revisa que la carpeta tenga espacio y se pueda escribir."
+)
+MENSAJE_NO_SE_PUDO_ACTUALIZAR = (
+    "No pude terminar de copiar las señas a este equipo. Revisa el archivo e inténtalo de nuevo."
+)
+MENSAJE_POLITICA_DESCONOCIDA = "Elige si quieres reemplazar las señas que ya tienes o solo agregar las nuevas."
+
+
+def texto_conflicto_importar(en_comun: int, nuevas: int) -> str:
+    """Explica el choque de glosas antes de fusionar la biblioteca."""
+    if en_comun == 1:
+        llegada = "1 seña que ya está en este equipo"
+    else:
+        llegada = f"{en_comun} señas que ya están en este equipo"
+    if nuevas == 0:
+        extra = "No trae señas nuevas."
+    elif nuevas == 1:
+        extra = "También trae 1 que todavía no está."
+    else:
+        extra = f"También trae {nuevas} que todavía no están."
+    return (
+        f"Este archivo trae {llegada}. {extra}\n\n"
+        "Si es la misma letra o palabra, y además es quieta o con movimiento igual que la tuya, "
+        "cuenta como la misma seña. Varias tomas de esa seña se tratan juntas.\n\n"
+        "«Reemplazar las que ya tengo» quita esas señas de este equipo y pone las del archivo. "
+        "Lo demás no se toca.\n\n"
+        "«Solo agregar las nuevas» deja las tuyas como están y solo suma las que aún no tienes."
+    )
+
+
+def mensaje_exportacion_lista(conteo: int, no_leidas: int = 0) -> str:
+    if conteo == 1:
+        texto = (
+            "Listo. Guardé 1 seña. Copia el archivo a la otra computadora "
+            "y pulsa «Importar…» en Biblioteca."
+        )
+    else:
+        texto = (
+            f"Listo. Guardé {conteo} señas. Copia el archivo a la otra computadora "
+            "y pulsa «Importar…» en Biblioteca."
+        )
+    if no_leidas == 1:
+        texto += " 1 no se pudo leer y no entró en el archivo."
+    elif no_leidas > 1:
+        texto += f" {no_leidas} no se pudieron leer y no entraron en el archivo."
+    return texto
+
+
+def mensaje_importacion_lista(*, agregadas: int, reemplazadas: int, omitidas: int) -> str:
+    """`agregadas` y `reemplazadas` cuentan señas escritas; `omitidas`, las que no se tocaron."""
+    if agregadas == 0 and reemplazadas == 0:
+        return "No agregué señas nuevas. Las que ya tenías se quedaron igual."
+    if reemplazadas and agregadas:
+        if reemplazadas == 1:
+            parte = "Reemplacé 1 seña que ya tenías"
+        else:
+            parte = f"Reemplacé {reemplazadas} señas que ya tenías"
+        if agregadas == 1:
+            suma = "agregué 1 seña nueva"
+        else:
+            suma = f"agregué {agregadas} señas nuevas"
+        texto = f"Listo. {parte} y {suma}."
+    elif reemplazadas == 1:
+        texto = "Listo. Reemplacé 1 seña que ya tenías por la del archivo."
+    elif reemplazadas:
+        texto = f"Listo. Reemplacé las señas que ya tenías por las {reemplazadas} del archivo."
+    else:
+        texto = (
+            f"Listo. Agregué {agregadas} "
+            f"{'seña nueva' if agregadas == 1 else 'señas nuevas'}."
+        )
+    if omitidas == 1:
+        texto += " Dejé sin cambiar 1 que ya estaba."
+    elif omitidas > 1:
+        texto += f" Dejé sin cambiar {omitidas} que ya estaban."
+    return texto

@@ -183,7 +183,7 @@ class VentanaMamatlatolli(ctk.CTk):
             )
             return
         if destino == DESTINO_BIBLIOTECA:
-            self.geometry("1040x780")
+            self.geometry("1040x860")
             self._cambiar(
                 PantallaBiblioteca(
                     self._contenedor,
