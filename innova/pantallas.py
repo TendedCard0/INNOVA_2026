@@ -26,7 +26,8 @@ from innova.config import (
     SUBTITULO,
 )
 from innova.esquema import CATEGORIA_LETRA, CATEGORIA_PALABRA, CATEGORIA_TODAS
-from innova.menu import OPCIONES_MENU, TEXTO_ACERCA
+from innova.menu import OPCIONES_MENU, texto_acerca
+from innova.rutas import carpeta_para_dialogos
 from innova.overlay import frame_mensaje
 from innova.paquete import (
     POLITICA_REEMPLAZAR,
@@ -1897,6 +1898,7 @@ class PantallaBiblioteca(ctk.CTkFrame):
         ruta = filedialog.asksaveasfilename(
             parent=self.winfo_toplevel(),
             title=textos.TITULO_DIALOGO_EXPORTAR,
+            initialdir=str(carpeta_para_dialogos()),
             defaultextension=".mamatlatolli",
             filetypes=[
                 ("Paquete de señas de Mamatlatolli", "*.mamatlatolli"),
@@ -1930,6 +1932,7 @@ class PantallaBiblioteca(ctk.CTkFrame):
         ruta = filedialog.askopenfilename(
             parent=self.winfo_toplevel(),
             title=textos.TITULO_DIALOGO_IMPORTAR,
+            initialdir=str(carpeta_para_dialogos()),
             filetypes=[
                 ("Paquete de señas de Mamatlatolli", "*.mamatlatolli"),
                 ("Un solo archivo de texto", "*.json"),
@@ -2221,7 +2224,7 @@ class PantallaAcercaDe(ctk.CTkFrame):
             wrap="word",
         )
         caja.pack(fill="both", expand=True, padx=24, pady=8)
-        caja.insert("1.0", TEXTO_ACERCA)
+        caja.insert("1.0", texto_acerca())
         caja.configure(state="disabled")
         _pie(self, textos.PIE_VOLVER)
 

@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
+from innova.rutas import ruta_ajustes, ruta_plantillas
 from innova.textos import MENSAJE_CAMARA_AUSENTE
 from innova.tema import (  # noqa: F401 — reexportados para overlay y código existente
     BGR_CAJA,
@@ -44,8 +43,11 @@ ETIQUETA_DETECTANDO = "detectando…"
 
 # Reconocimiento (fase 2a estática + 2b DTW).
 VERSION_ESQUEMA = "1.0"
-RUTA_PLANTILLAS = Path(__file__).resolve().parent.parent / "datos" / "plantillas"
-RUTA_AJUSTES = Path(__file__).resolve().parent.parent / "datos" / "config.json"
+# En desarrollo apuntan a datos/ del repositorio. Empaquetado, a la carpeta
+# escribible del usuario (en Windows, %LOCALAPPDATA%\Mamatlatolli).
+# Ver innova/rutas.py y docs/empaquetado.md.
+RUTA_PLANTILLAS = ruta_plantillas()
+RUTA_AJUSTES = ruta_ajustes()
 METRICA_DISTANCIA = "euclidiana"  # "euclidiana" | "coseno"
 # Distancia RMS a partir de la cual la confianza cae a 0.
 SATURACION_DISTANCIA = 0.55

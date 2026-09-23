@@ -23,6 +23,13 @@ Los archivos viven en `datos/plantillas/` (también se aceptan subcarpetas)
 y se leen al arrancar el reconocedor. La validación está en `innova/esquema.py`
 (`validar_muestra`, `muestra_desde_dict`, `MuestraLSM.a_dict()`).
 
+En desarrollo, `datos/` es la carpeta del repositorio (`datos/plantillas/`
+y `datos/config.json`, con el tema y `record_practica`). Con el instalador
+de Windows el programa no escribe en su carpeta de instalación: las señas,
+la configuración y el récord van a `%LOCALAPPDATA%\Mamatlatolli`
+(`plantillas\` y `config.json`). Exportar e importar usan esa misma
+biblioteca. El detalle está en [`empaquetado.md`](empaquetado.md).
+
 ## Campos de una muestra
 
 | Campo | Tipo | Notas |

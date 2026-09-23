@@ -48,7 +48,10 @@ placeholder con el nombre. Abajo, el
 control **Apariencia** cambia entre **Modo claro** y **Modo oscuro** sin
 salir del menú. Lo mismo está en **Configuración**. La elección se guarda
 en `datos/config.json` (`"tema": "claro"` o `"tema": "oscuro"`) y
-Mamatlatolli la aplica al volver a abrir.
+Mamatlatolli la aplica al volver a abrir. En desarrollo esa carpeta es la
+del repositorio. En la copia instalada de Windows, la configuración, el
+récord y las plantillas están en `%LOCALAPPDATA%\Mamatlatolli`
+([`empaquetado.md`](empaquetado.md)).
 
 `python app.py --demo` también abre el menú; *Abecedario*,
 *Vocabulario* y *Mini juego* usan entonces el video sintético. *Modo demostración*

@@ -29,7 +29,7 @@ def parsear_argumentos(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--desde",
         default=None,
-        help="Carpeta de señas (por omisión: datos/plantillas).",
+        help="Carpeta de señas. Si se omite, se usa la biblioteca de Mamatlatolli (en desarrollo: datos/plantillas).",
     )
     return parser.parse_args(argv)
 

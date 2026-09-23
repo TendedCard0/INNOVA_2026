@@ -92,7 +92,7 @@ TEXTO_ACERCA = (
     "señarla. Si la seña estable llega en menos de 1 segundo suma 1000 puntos; "
     "entre 1 y 3 segundos, 700; de 3 a menos de 5, 500. Luego sale otra letra. "
     "Si se acaba el tiempo, o la seña estable es otra letra, la partida termina "
-    "y solo se guarda el récord (la puntuación más alta) en datos/config.json. "
+    "y solo se guarda el récord (la puntuación más alta), junto con la configuración. "
     "No hay una lista de palabras ni plantillas precargadas.\n\n"
     "En Biblioteca puedes exportar las señas a un archivo e importarlas en "
     "otra computadora, sin volver a capturarlas. Si una seña ya existe, "
@@ -111,6 +111,17 @@ TEXTO_ACERCA = (
     "Esc, o el botón ← Menú, vuelven al menú. En el menú, Esc o Q cierran "
     "Mamatlatolli. Q no cierra si estás escribiendo."
 )
+
+
+def texto_acerca() -> str:
+    """Texto de Acerca de, con la carpeta real de señas de esta copia."""
+    from innova.rutas import ruta_datos_usuario
+
+    return (
+        TEXTO_ACERCA
+        + "\n\nLas señas, la configuración y el récord de esta copia de Mamatlatolli están en:\n"
+        + str(ruta_datos_usuario())
+    )
 
 
 def etiquetas_menu() -> list[str]:
