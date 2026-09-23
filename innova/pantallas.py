@@ -9,7 +9,7 @@ from typing import Any, Callable, Optional
 
 import customtkinter as ctk
 import cv2
-from PIL import Image
+from PIL import Image, ImageDraw
 
 from innova import tema
 from innova.ajustes import Ajustes, cargar_record_practica, guardar_ajustes, guardar_record_practica
@@ -37,8 +37,10 @@ from innova.practica import (
 )
 from innova.tema import (
     acento_de_indice,
+    hex_a_rgb,
     icono_menu,
     imagen_logo,
+    imagen_logo_encajada,
     nombres_iconos_menu,
     resolver_logo,
 )
@@ -148,18 +150,20 @@ def _recorrer_widgets(widget: Any, fn: Callable[[Any], None]) -> None:
 class MarcaMamatlatolli(ctk.CTkFrame):
     """Logo oficial (`assets/logo.png`) o marco placeholder, centrado, más el wordmark.
 
-    El PNG oficial es el wordmark completo (casi cuadrado). En el menú se
-    muestra más grande que el placeholder de puntos para que se lea. Si el
-    archivo no está, vuelve el marco tríadico de 104 px.
+    El PNG oficial trae la M, el wordmark y la frase. Se encaja en una caja
+    ancha sin deformarlo. Si el archivo no está, vuelve el marco tríadico.
     """
 
-    _LADO_LOGO = 240
+    _ANCHO_LOGO = 440
+    _ALTO_LOGO = 210
     _LADO_PLACEHOLDER = 104
 
     def __init__(self, master: Any) -> None:
         super().__init__(master, fg_color="transparent")
-        lado = self._LADO_LOGO if resolver_logo() is not None else self._LADO_PLACEHOLDER
-        pil, self._es_logo_archivo = imagen_logo(lado)
+        if resolver_logo() is not None:
+            pil, self._es_logo_archivo = imagen_logo_encajada(self._ANCHO_LOGO, self._ALTO_LOGO)
+        else:
+            pil, self._es_logo_archivo = imagen_logo(self._LADO_PLACEHOLDER)
         self._logo_ctk = ctk.CTkImage(light_image=pil, dark_image=pil, size=pil.size)
         ctk.CTkLabel(self, image=self._logo_ctk, text="").pack(pady=(4, 0))
         ctk.CTkLabel(
@@ -366,7 +370,7 @@ class PantallaMenu(ctk.CTkFrame):
         pie.pack(fill="x", padx=24, pady=(4, 14))
         ctk.CTkLabel(
             pie,
-            text="Esc o Q para salir    ·    Abecedario, Vocabulario y Práctica",
+            text="Esc o Q para salir    ·    Abecedario, Vocabulario y Mini juego",
             font=ctk.CTkFont(size=12),
             text_color=tema.COLOR_TEXTO_MUDO,
         ).pack(side="left")
@@ -782,7 +786,7 @@ class PantallaReconocimiento(_PantallaConCamara):
 
 
 class PantallaPractica(_PantallaConCamara):
-    """Letra estática en grande, 5 segundos, puntos y récord personal."""
+    """Mini juego: letra estática, cronómetro de 5 s y puntos por rapidez."""
 
     def __init__(
         self,
@@ -806,8 +810,8 @@ class PantallaPractica(_PantallaConCamara):
             indice_camara=indice_camara,
             ajustes=ajustes,
             on_volver=on_volver,
-            titulo=f"{NOMBRE_PRODUCTO} · Práctica",
-            subtitulo="Letras estáticas · 5 segundos · récord personal",
+            titulo=f"{NOMBRE_PRODUCTO} · Mini juego",
+            subtitulo="Más rápido, más puntos · 1000, 700 o 500",
             reconocer=True,
             categoria=CATEGORIA_LETRA,
             texto_pie="← Menú    ·    Esc o Q salen    ·    La seña debe quedar estable; un parpadeo no suma",
@@ -830,13 +834,17 @@ class PantallaPractica(_PantallaConCamara):
             text_color=tema.COLOR_ACENTO,
         )
         self.lbl_letra.pack(anchor="w", padx=20, pady=(0, 0))
+        self._crono_lado = 132
+        self._crono_ref: ctk.CTkImage | None = None
+        self.lbl_crono = ctk.CTkLabel(self.marco_juego, text="")
+        self.lbl_crono.pack(anchor="w", padx=20, pady=(0, 0))
         self.lbl_tiempo = ctk.CTkLabel(
             self.marco_juego,
             text="5.0 s",
-            font=ctk.CTkFont(size=32, weight="bold"),
+            font=ctk.CTkFont(size=22, weight="bold"),
             text_color=tema.COLOR_TEXTO,
         )
-        self.lbl_tiempo.pack(anchor="w", padx=20, pady=(0, 8))
+        self.lbl_tiempo.pack(anchor="w", padx=20, pady=(0, 6))
         self.lbl_puntos = ctk.CTkLabel(
             self.marco_juego,
             text="Puntos: 0",
@@ -892,7 +900,7 @@ class PantallaPractica(_PantallaConCamara):
 
         ctk.CTkLabel(
             self.marco_vacio,
-            text="Sin letras para practicar",
+            text="Sin letras para el mini juego",
             font=ctk.CTkFont(size=18, weight="bold"),
             text_color=tema.COLOR_TEXTO,
             wraplength=310,
@@ -966,10 +974,9 @@ class PantallaPractica(_PantallaConCamara):
             text=vista.letra,
             text_color=tema.COLOR_ERROR if vista.terminado else tema.COLOR_ACENTO,
         )
-        self.lbl_tiempo.configure(
-            text=f"{vista.restante_s:.1f} s",
-            text_color=_color_tiempo(vista.restante_s, terminado=vista.terminado),
-        )
+        color_tiempo = _color_tiempo(vista.restante_s, terminado=vista.terminado)
+        self.lbl_tiempo.configure(text=f"{vista.restante_s:.1f} s", text_color=color_tiempo)
+        self._pintar_cronometro(vista.restante_s, color_tiempo, terminado=vista.terminado)
         self.lbl_puntos.configure(text=f"Puntos: {vista.puntuacion}")
         self.lbl_record.configure(text=f"Récord: {vista.record}")
         if vista.terminado:
@@ -979,11 +986,14 @@ class PantallaPractica(_PantallaConCamara):
                 self.marco_fin.pack(fill="x", padx=20, pady=(4, 8))
             return
         if vista.acierto:
-            self.lbl_mensaje.configure(text="¡Bien! +1", text_color=tema.COLOR_OK)
+            self.lbl_mensaje.configure(
+                text=f"¡Bien! +{vista.puntos_obtenidos}",
+                text_color=tema.COLOR_OK,
+            )
             return
         if time.monotonic() >= self._aviso_hasta:
             self.lbl_mensaje.configure(
-                text="Seña la letra y mantenla estable antes de que termine el tiempo.",
+                text="Menos de 1 s: 1000 · hasta 3 s: 700 · antes de 5 s: 500.",
                 text_color=tema.COLOR_TEXTO_MUDO,
             )
 
@@ -1019,6 +1029,20 @@ class PantallaPractica(_PantallaConCamara):
         self._pintar(_vista_inicial(self._partida))
         self.lbl_sena.configure(text="Tu seña estable: —")
 
+    def _pintar_cronometro(self, restante: float, color: str, *, terminado: bool) -> None:
+        duracion = self._partida.duracion_s if self._partida is not None else 5.0
+        pil = _dibujar_cronometro(
+            restante,
+            duracion,
+            lado=self._crono_lado,
+            color=color,
+            pista=tema.COLOR_BORDE,
+            terminado=terminado,
+        )
+        imagen = ctk.CTkImage(light_image=pil, dark_image=pil, size=pil.size)
+        self._crono_ref = imagen
+        self.lbl_crono.configure(image=imagen)
+
 
 def _vista_inicial(partida: PartidaPractica) -> VistaPractica:
     return VistaPractica(
@@ -1031,6 +1055,34 @@ def _vista_inicial(partida: PartidaPractica) -> VistaPractica:
         motivo=None,
         nuevo_record=False,
     )
+
+
+def _dibujar_cronometro(
+    restante: float,
+    duracion: float,
+    *,
+    lado: int,
+    color: str,
+    pista: str,
+    terminado: bool = False,
+) -> Image.Image:
+    """Aro que se vacía en el sentido del reloj. 1 = tiempo completo."""
+    fraccion = 0.0 if duracion <= 0 else max(0.0, min(1.0, restante / duracion))
+    if terminado:
+        fraccion = 0.0
+    imagen = Image.new("RGBA", (lado, lado), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(imagen)
+    margen = max(4, int(lado * 0.08))
+    caja = (margen, margen, lado - 1 - margen, lado - 1 - margen)
+    grosor = max(8, lado // 11)
+    draw.arc(caja, 0, 360, fill=hex_a_rgb(pista) + (255,), width=grosor)
+    if fraccion >= 0.999:
+        draw.ellipse(caja, outline=hex_a_rgb(color) + (255,), width=grosor)
+    elif fraccion > 0.001:
+        barrido = 360.0 * fraccion
+        # Desde las 12, el tramo que queda se dibuja en sentido horario.
+        draw.arc(caja, -90 - barrido, -90, fill=hex_a_rgb(color) + (255,), width=grosor)
+    return imagen
 
 
 def _color_tiempo(restante: float, *, terminado: bool) -> str:
@@ -1630,7 +1682,7 @@ class PantallaConfiguracion(ctk.CTkFrame):
         guardar_ajustes(aj)
         self._on_guardar(aj)
         self.lbl_estado.configure(
-            text="Ajustes guardados. Se aplican al volver a Abecedario, Vocabulario o Práctica.",
+            text="Ajustes guardados. Se aplican al volver a Abecedario, Vocabulario o Mini juego.",
             text_color=tema.COLOR_ACENTO,
         )
 

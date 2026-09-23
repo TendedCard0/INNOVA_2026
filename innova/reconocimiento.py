@@ -147,7 +147,7 @@ class ReconocedorEstatico:
         self.avisos_carga: list[str] = []
 
         self.forzar_dinamico = False
-        # Práctica compara solo poses estáticas: no entra a DTW automático.
+        # Mini juego compara solo poses estáticas: no entra a DTW automático.
         self.solo_estatico = False
         self._buffer_forzado: list[FotogramaSecuencia] = []
         self._t0_forzado = 0.0

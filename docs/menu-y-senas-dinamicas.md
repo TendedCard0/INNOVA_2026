@@ -21,7 +21,7 @@ no está— y ocho tarjetas:
 | --- | --- |
 | **Abecedario** | Cámara en vivo, solo letras (estáticas y dinámicas). |
 | **Vocabulario** | Cámara en vivo, solo palabras. Usa mano, pose y rostro. Si aún no hay plantillas de palabra, muestra un estado vacío en español. |
-| **Práctica** | Letra estática al azar, 5 segundos, puntos y récord personal. Solo letras que ya capturaste; si no hay, un aviso en español. |
+| **Mini juego** | Letra estática al azar, cronómetro de 5 segundos y puntos por rapidez (1000 / 700 / 500). Solo letras que ya capturaste; si no hay, un aviso en español. |
 | **Capturar plantillas** | Guardar una pose o una trayectoria; eliges Letra o Palabra. |
 | **Biblioteca de señas** | Listar, filtrar (`letra` / `palabra` / `todas`), probar o borrar. |
 | **Configuración** | Umbrales de confianza/estabilidad, sensibilidad al movimiento y apariencia (modo claro / modo oscuro). |
@@ -44,26 +44,29 @@ en `datos/config.json` (`"tema": "claro"` o `"tema": "oscuro"`) y
 Mamatlatolli la aplica al volver a abrir.
 
 `python app.py --demo` también abre el menú; *Abecedario*,
-*Vocabulario* y *Práctica* usan entonces el video sintético. *Modo demostración*
+*Vocabulario* y *Mini juego* usan entonces el video sintético. *Modo demostración*
 abre Abecedario sin cámara aunque no hayas pasado `--demo`.
 
-## Práctica
+## Mini juego
 
-**Práctica** no enseña un vocabulario ni trae palabras precargadas. Toma las
+**Mini juego** no enseña un vocabulario ni trae palabras precargadas. Toma las
 plantillas estáticas de `categoria: "letra"` que ya están en
-`datos/plantillas/` y pide señar una, al azar, en **5 segundos**.
+`datos/plantillas/` y pide señar una, al azar, en **5 segundos**. El tiempo
+se ve en un aro que se vacía y en la cuenta numérica.
 
 - Acierto: la predicción **estable** (el mismo filtro de Abecedario, no la
-  estimación instantánea) es esa letra. Suma 1 punto, elige otra letra —sin
-  repetir la anterior si hay más de una— y reinicia el reloj.
-- Fallo: se acaba el tiempo, o la seña estable es otra letra. La partida
+  estimación instantánea) es esa letra antes de los 5 s. Los puntos dependen
+  de la rapidez: **1000** si tarda menos de 1 s, **700** de 1 s a menos de 3 s,
+  **500** de 3 s a menos de 5 s. Luego elige otra letra —sin repetir la
+  anterior si hay más de una— y reinicia el reloj.
+- Fallo: se cumplen los 5 segundos, o la seña estable es otra letra. La partida
   termina. **Reintentar** o **Menú**.
 - Récord: en `datos/config.json`, la clave `record_practica` solo se
   actualiza si la puntuación es mayor que la guardada.
 
 Si no hay letras estáticas, la pantalla lo explica en español y remite a
 **Capturar plantillas** (Letra · Estática). Las plantillas dinámicas y las
-palabras no entran en esta partida. Práctica no usa DTW: compara la pose
+palabras no entran en esta partida. Mini juego no usa DTW: compara la pose
 quieta.
 
 ## Cómo capturar

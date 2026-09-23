@@ -1,4 +1,4 @@
-"""Práctica: puntos, récord (solo el máximo) y el reloj de 5 segundos."""
+"""Mini juego: puntos por rapidez, récord (solo el máximo) y el reloj de 5 segundos."""
 
 from __future__ import annotations
 
@@ -33,10 +33,13 @@ from innova.plantillas import guardar_plantilla
 from innova.practica import (
     MOTIVO_FALLA,
     MOTIVO_TIEMPO,
-    PUNTOS_ACIERTO,
+    PUNTOS_LENTO,
+    PUNTOS_MEDIO,
+    PUNTOS_RAPIDO,
     PartidaPractica,
     elegir_letra,
     letras_estaticas_disponibles,
+    puntos_por_rapidez,
     record_tras_partida,
 )
 from innova.reconocimiento import ReconocedorEstatico, ResultadoReconocimiento
@@ -95,13 +98,13 @@ class TestPuntuacionYReloj(unittest.TestCase):
     def test_acierto_suma_y_cambia_letra_sin_repetir(self) -> None:
         rng = random.Random(0)
         partida = PartidaPractica(["A", "B", "C"], record=4, duracion_s=5.0, rng=rng)
-        self.assertEqual(PUNTOS_ACIERTO, 1)
         t = 0.0
         for _ in range(12):
             objetivo = partida.letra
             t += 0.4
             vista = partida.observar(t, objetivo.lower(), comprometida=True)
             self.assertTrue(vista.acierto)
+            self.assertEqual(vista.puntos_obtenidos, PUNTOS_RAPIDO)
             self.assertFalse(vista.terminado)
             self.assertNotEqual(vista.letra, objetivo)
             self.assertAlmostEqual(vista.restante_s, 5.0, places=5)
@@ -109,21 +112,23 @@ class TestPuntuacionYReloj(unittest.TestCase):
             suelta = partida.observar(t, "—", comprometida=False)
             self.assertFalse(suelta.acierto)
             self.assertFalse(suelta.terminado)
-        self.assertEqual(partida.puntuacion, 12)
+        self.assertEqual(partida.puntuacion, 12 * PUNTOS_RAPIDO)
 
     def test_sostener_el_acierto_no_suma_otra_vez_ni_falla(self) -> None:
         partida = PartidaPractica(["A"], duracion_s=5.0, rng=random.Random(1))
         vista = partida.observar(0.2, "A", comprometida=True)
         self.assertTrue(vista.acierto)
-        self.assertEqual(vista.puntuacion, 1)
+        self.assertEqual(vista.puntos_obtenidos, PUNTOS_RAPIDO)
+        self.assertEqual(vista.puntuacion, PUNTOS_RAPIDO)
         sigue = partida.observar(0.5, "A", comprometida=True)
         self.assertFalse(sigue.acierto)
         self.assertFalse(sigue.terminado)
-        self.assertEqual(sigue.puntuacion, 1)
+        self.assertEqual(sigue.puntuacion, PUNTOS_RAPIDO)
         partida.observar(0.6, None, comprometida=False)
         otra = partida.observar(0.9, "A", comprometida=True)
         self.assertTrue(otra.acierto)
-        self.assertEqual(otra.puntuacion, 2)
+        self.assertEqual(otra.puntos_obtenidos, PUNTOS_RAPIDO)
+        self.assertEqual(otra.puntuacion, 2 * PUNTOS_RAPIDO)
 
     def test_parpadeo_sin_compromiso_no_cuenta(self) -> None:
         partida = PartidaPractica(["A", "B"], rng=random.Random(2))
@@ -161,12 +166,21 @@ class TestPuntuacionYReloj(unittest.TestCase):
         self.assertEqual(justo.restante_s, 0.0)
 
     def test_acierto_en_el_limite_y_tarde_no(self) -> None:
-        a_tiempo = PartidaPractica(["Z"], duracion_s=5.0)
-        a_tiempo.observar(0.0, None, comprometida=False)
-        vista = a_tiempo.observar(5.0, "Z", comprometida=True)
+        dentro = PartidaPractica(["Z"], duracion_s=5.0)
+        dentro.observar(0.0, None, comprometida=False)
+        vista = dentro.observar(4.9, "Z", comprometida=True)
         self.assertTrue(vista.acierto)
-        self.assertEqual(vista.puntuacion, 1)
+        self.assertEqual(vista.puntos_obtenidos, PUNTOS_LENTO)
+        self.assertEqual(vista.puntuacion, PUNTOS_LENTO)
         self.assertFalse(vista.terminado)
+
+        justo = PartidaPractica(["Z"], duracion_s=5.0)
+        justo.observar(0.0, None, comprometida=False)
+        en_cinco = justo.observar(5.0, "Z", comprometida=True)
+        self.assertFalse(en_cinco.acierto)
+        self.assertTrue(en_cinco.terminado)
+        self.assertEqual(en_cinco.motivo, MOTIVO_TIEMPO)
+        self.assertEqual(en_cinco.puntuacion, 0)
 
         tarde = PartidaPractica(["Z"], duracion_s=5.0)
         tarde.observar(0.0, None, comprometida=False)
@@ -182,11 +196,11 @@ class TestPuntuacionYReloj(unittest.TestCase):
         partida.observar(1.0, objetivo, comprometida=True)
         sigue = partida.observar(5.9, None, comprometida=False)
         self.assertFalse(sigue.terminado)
-        self.assertEqual(sigue.puntuacion, 1)
+        self.assertEqual(sigue.puntuacion, PUNTOS_RAPIDO)
         fin = partida.observar(6.0, None, comprometida=False)
         self.assertTrue(fin.terminado)
         self.assertEqual(fin.motivo, MOTIVO_TIEMPO)
-        self.assertEqual(fin.puntuacion, 1)
+        self.assertEqual(fin.puntuacion, PUNTOS_RAPIDO)
 
     def test_record_solo_si_supera(self) -> None:
         self.assertEqual(record_tras_partida(3, 5), (5, False))
@@ -194,15 +208,16 @@ class TestPuntuacionYReloj(unittest.TestCase):
         self.assertEqual(record_tras_partida(6, 5), (6, True))
         self.assertEqual(record_tras_partida(0, 0), (0, False))
 
-        empata = self._partida_con_puntos(3, record=3)
+        empata = self._partida_con_puntos(1, record=PUNTOS_RAPIDO)
         self.assertTrue(empata.terminado)
+        self.assertEqual(empata.puntuacion, PUNTOS_RAPIDO)
         self.assertFalse(empata.nuevo_record)
-        self.assertEqual(empata.record, 3)
+        self.assertEqual(empata.record, PUNTOS_RAPIDO)
 
-        supera = self._partida_con_puntos(2, record=1)
+        supera = self._partida_con_puntos(1, record=PUNTOS_LENTO)
         self.assertTrue(supera.nuevo_record)
-        self.assertEqual(supera.record, 2)
-        self.assertEqual(supera.puntuacion, 2)
+        self.assertEqual(supera.puntuacion, PUNTOS_RAPIDO)
+        self.assertEqual(supera.record, PUNTOS_RAPIDO)
 
     def test_reconocedor_falso_acierto_y_tiempo(self) -> None:
         falso = _ReconocedorFalso()
@@ -215,7 +230,8 @@ class TestPuntuacionYReloj(unittest.TestCase):
         falso.etiqueta = partida.letra
         acierto = partida.observar_resultado(1.0, falso.predecir(None, []))
         self.assertTrue(acierto.acierto)
-        self.assertEqual(acierto.puntuacion, 1)
+        self.assertEqual(acierto.puntos_obtenidos, PUNTOS_MEDIO)
+        self.assertEqual(acierto.puntuacion, PUNTOS_MEDIO)
 
         # La estimación cruda no se consulta: si la estable no coincide, no hay punto.
         cruda = ResultadoReconocimiento(
@@ -228,9 +244,9 @@ class TestPuntuacionYReloj(unittest.TestCase):
         partida.observar(1.1, None, comprometida=False)
         sin_punto = partida.observar_resultado(1.3, cruda)
         self.assertFalse(sin_punto.acierto)
-        self.assertEqual(sin_punto.puntuacion, 1)
+        self.assertEqual(sin_punto.puntuacion, PUNTOS_MEDIO)
 
-        # Una trayectoria (DTW) no cierra ni suma en Práctica.
+        # Una trayectoria (DTW) no cierra ni suma en Mini juego.
         dinamica = ResultadoReconocimiento(
             etiqueta=partida.letra,
             confianza=0.95,
@@ -244,7 +260,33 @@ class TestPuntuacionYReloj(unittest.TestCase):
         fin = partida.observar_resultado(1.0 + 5.0, falso.predecir(None, []))
         self.assertTrue(fin.terminado)
         self.assertEqual(fin.motivo, MOTIVO_TIEMPO)
-        self.assertEqual(fin.puntuacion, 1)
+        self.assertEqual(fin.puntuacion, PUNTOS_MEDIO)
+
+    def test_tramos_de_rapidez(self) -> None:
+        self.assertEqual(puntos_por_rapidez(0.0), PUNTOS_RAPIDO)
+        self.assertEqual(puntos_por_rapidez(0.99), PUNTOS_RAPIDO)
+        self.assertEqual(puntos_por_rapidez(1.0), PUNTOS_MEDIO)
+        self.assertEqual(puntos_por_rapidez(2.0), PUNTOS_MEDIO)
+        self.assertEqual(puntos_por_rapidez(2.999), PUNTOS_MEDIO)
+        self.assertEqual(puntos_por_rapidez(3.0), PUNTOS_LENTO)
+        self.assertEqual(puntos_por_rapidez(4.999), PUNTOS_LENTO)
+        self.assertEqual(puntos_por_rapidez(5.0), 0)
+
+        def jugar(dt: float):
+            partida = PartidaPractica(["A"], duracion_s=5.0)
+            partida.observar(0.0, None, comprometida=False)
+            return partida.observar(dt, "A", comprometida=True)
+
+        self.assertEqual(jugar(0.4).puntos_obtenidos, 1000)
+        self.assertEqual(jugar(1.0).puntos_obtenidos, 700)
+        self.assertEqual(jugar(2.0).puntos_obtenidos, 700)
+        self.assertEqual(jugar(3.0).puntos_obtenidos, 500)
+        self.assertEqual(jugar(4.5).puntos_obtenidos, 500)
+        fin = jugar(5.0)
+        self.assertTrue(fin.terminado)
+        self.assertEqual(fin.motivo, MOTIVO_TIEMPO)
+        self.assertEqual(fin.puntuacion, 0)
+        self.assertEqual(fin.puntos_obtenidos, 0)
 
     def test_no_repite_si_hay_otra_letra(self) -> None:
         rng = random.Random(9)

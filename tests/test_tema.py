@@ -134,11 +134,14 @@ class TestPantallaMenuTk(unittest.TestCase):
                 if w.__class__.__name__ == "MarcaMamatlatolli"
             )
             self.assertTrue(marca._es_logo_archivo)
-            self.assertEqual(marca._logo_ctk._size, (MarcaMamatlatolli._LADO_LOGO,) * 2)
+            ancho, alto = marca._logo_ctk._size
+            self.assertLessEqual(ancho, MarcaMamatlatolli._ANCHO_LOGO)
+            self.assertLessEqual(alto, MarcaMamatlatolli._ALTO_LOGO)
+            self.assertGreater(ancho, alto)
             etiquetas = [OPCIONES_MENU[i][1] for i in range(8)]
             self.assertEqual(etiquetas[0], "Abecedario")
             self.assertEqual(etiquetas[1], "Vocabulario")
-            self.assertEqual(etiquetas[2], "Práctica")
+            self.assertEqual(etiquetas[2], "Mini juego")
             self.assertNotIn("Iniciar reconocimiento", etiquetas)
             pantalla._tarjetas[0]._on_ir(pantalla._tarjetas[0]._destino)
             self.assertEqual(destinos, ["abecedario"])
@@ -370,7 +373,7 @@ class TestTemaEnVivo(unittest.TestCase):
                 self.assertEqual(len(raiz._pantalla._tarjetas), 8)
                 self.assertIsNotNone(_widget_con_texto(raiz, "Abecedario"))
                 self.assertIsNotNone(_widget_con_texto(raiz, "Vocabulario"))
-                self.assertIsNotNone(_widget_con_texto(raiz, "Práctica"))
+                self.assertIsNotNone(_widget_con_texto(raiz, "Mini juego"))
                 menu_oscuro = _widget_con_texto(raiz, "Modo oscuro")
                 self.assertIsNotNone(menu_oscuro)
                 assert menu_oscuro is not None

@@ -1,10 +1,11 @@
-"""Modo Práctica de Mamatlatolli: letra estática, 5 segundos y récord.
+"""Mini juego de Mamatlatolli: letra estática, 5 segundos y récord.
 
 No hay una lista guiada ni plantillas precargadas. Las letras salen de las
 plantillas estáticas ``categoria: letra`` que la persona ya capturó. Un
 acierto solo cuenta cuando la predicción *estable* (filtro de estabilidad)
-coincide con la letra en pantalla antes de que se acabe el tiempo. Si se
-acaba el tiempo, o la seña estable es otra letra, la partida termina.
+coincide con la letra en pantalla antes de que se acabe el tiempo. Mientras
+más rápido, más puntos. Si se acaba el tiempo, o la seña estable es otra
+letra, la partida termina.
 """
 
 from __future__ import annotations
@@ -23,15 +24,20 @@ from innova.plantillas import (
 )
 
 DURACION_RONDA_S = 5.0
-PUNTOS_ACIERTO = 1
+# Rapidez del acierto estable: menos de 1 s, de 1 s a menos de 3 s, de 3 s a menos de 5 s.
+PUNTOS_RAPIDO = 1000
+PUNTOS_MEDIO = 700
+PUNTOS_LENTO = 500
+UMBRAL_RAPIDO_S = 1.0
+UMBRAL_MEDIO_S = 3.0
 
 MOTIVO_TIEMPO = "tiempo"
 MOTIVO_FALLA = "falla"
 
 MENSAJE_SIN_LETRAS = (
     "Aún no hay letras estáticas. En «Capturar plantillas» elige Letra y "
-    "Estática, y guarda las señas que quieras practicar. Mamatlatolli no trae "
-    "una lista de palabras: Práctica usa solo las letras que tú captures."
+    "Estática, y guarda las señas que quieras jugar. Mamatlatolli no trae "
+    "una lista de palabras: Mini juego usa solo las letras que tú captures."
 )
 
 _MARCADORES = frozenset(
@@ -57,7 +63,7 @@ def normalizar_letra(texto: str | None) -> str:
 def letras_estaticas_disponibles(ruta: str | Path | None = None) -> list[str]:
     """Etiquetas únicas de plantillas estáticas de letra, en orden alfabético.
 
-    Ignora palabras y señas dinámicas: Práctica solo pide una pose quieta.
+    Ignora palabras y señas dinámicas: Mini juego solo pide una pose quieta.
     """
     muestras, _errores = cargar_plantillas_con_errores(None if ruta is None else Path(ruta))
     estaticas = plantillas_estaticas(filtrar_por_categoria(muestras, CATEGORIA_LETRA))
@@ -104,6 +110,25 @@ def compromiso_desde_resultado(resultado: Any) -> tuple[str | None, bool]:
     return etiqueta, True
 
 
+def puntos_por_rapidez(transcurrido_s: float) -> int:
+    """Puntos de un acierto según cuánto tardó la seña estable.
+
+    Menos de 1 s → 1000. De 1 s a menos de 3 s → 700. De 3 s a menos de 5 s → 500.
+    A los 5 s ya no hay acierto: la ronda se pierde y esto devuelve 0.
+    """
+    try:
+        t = float(transcurrido_s)
+    except (TypeError, ValueError):
+        return 0
+    if t < UMBRAL_RAPIDO_S:
+        return PUNTOS_RAPIDO
+    if t < UMBRAL_MEDIO_S:
+        return PUNTOS_MEDIO
+    if t < DURACION_RONDA_S:
+        return PUNTOS_LENTO
+    return 0
+
+
 def record_tras_partida(puntuacion: int, record: int) -> tuple[int, bool]:
     """Devuelve ``(récord vigente, es_nuevo)``. Solo sube si la partida gana."""
     puntos = _no_negativo(puntuacion)
@@ -125,6 +150,7 @@ class VistaPractica:
     terminado: bool
     motivo: str | None
     nuevo_record: bool
+    puntos_obtenidos: int = 0
 
 
 def texto_fin(vista: VistaPractica) -> str:
@@ -139,7 +165,7 @@ def texto_fin(vista: VistaPractica) -> str:
 
 
 class PartidaPractica:
-    """Una corrida: letra al azar, 5 s, +1 y letra nueva, o fin de partida.
+    """Una corrida: letra al azar, 5 s, puntos por rapidez, o fin de partida.
 
     Tras un acierto se ignora la misma letra comprometida hasta que la
     predicción estable cambie o se suelte. Así, seguir mostrando la seña
@@ -165,7 +191,7 @@ class PartidaPractica:
             ya.add(norma)
             banco.append(norma)
         if not banco:
-            raise ValueError("Práctica necesita al menos una letra estática.")
+            raise ValueError("Mini juego necesita al menos una letra estática.")
         if duracion_s <= 0:
             raise ValueError("La duración de la ronda debe ser mayor que cero.")
         self.letras = banco
@@ -220,21 +246,25 @@ class PartidaPractica:
         etiqueta, comprometida = compromiso_desde_resultado(resultado)
         return self.observar(ahora, etiqueta, comprometida=comprometida)
 
-    def _a_tiempo(self, ahora: float) -> bool:
+    def _transcurrido(self, ahora: float) -> float:
         assert self._inicio is not None
-        return (float(ahora) - self._inicio) <= self.duracion_s + 1e-9
+        return max(0.0, float(ahora) - self._inicio)
+
+    def _a_tiempo(self, ahora: float) -> bool:
+        # El tramo de 500 puntos es [3 s, 5 s): en el segundo 5 la ronda ya se pierde.
+        return self._transcurrido(ahora) < self.duracion_s
 
     def _expirada(self, ahora: float) -> bool:
-        assert self._inicio is not None
-        return (float(ahora) - self._inicio) >= self.duracion_s - 1e-9
+        return self._transcurrido(ahora) >= self.duracion_s - 1e-9
 
     def _acertar(self, ahora: float) -> VistaPractica:
+        obtenidos = puntos_por_rapidez(self._transcurrido(ahora))
         anterior = self.letra
-        self.puntuacion += PUNTOS_ACIERTO
+        self.puntuacion += obtenidos
         self._bloqueada = anterior
         self.letra = elegir_letra(self.letras, anterior, self._rng)
         self._inicio = float(ahora)
-        return self._vista(ahora, acierto=True)
+        return self._vista(ahora, acierto=True, puntos_obtenidos=obtenidos)
 
     def _terminar(self, motivo: str, ahora: float) -> VistaPractica:
         self.terminada = True
@@ -245,7 +275,7 @@ class PartidaPractica:
         self.nuevo_record = es_nuevo
         return self._vista(ahora, acierto=False)
 
-    def _vista(self, ahora: float, *, acierto: bool) -> VistaPractica:
+    def _vista(self, ahora: float, *, acierto: bool, puntos_obtenidos: int = 0) -> VistaPractica:
         return VistaPractica(
             letra=self.letra,
             puntuacion=self.puntuacion,
@@ -255,6 +285,7 @@ class PartidaPractica:
             terminado=self.terminada,
             motivo=self.motivo,
             nuevo_record=self.nuevo_record,
+            puntos_obtenidos=puntos_obtenidos,
         )
 
     def _restante(self, ahora: float) -> float:

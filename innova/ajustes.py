@@ -36,7 +36,7 @@ class Ajustes:
     umbral_movimiento: float = UMBRAL_MOVIMIENTO
     metrica: str = METRICA_DISTANCIA
     tema: str = TEMA_CLARO
-    # Récord de Práctica. Solo sube; guardar_record_practica no lo baja.
+    # Récord de Mini juego. Solo sube; guardar_record_practica no lo baja.
     record_practica: int = 0
 
     def normalizado(self) -> Ajustes:
@@ -85,7 +85,7 @@ def guardar_ajustes(ajustes: Ajustes, ruta: str | Path | None = None) -> Path:
 
 
 def cargar_record_practica(ruta: str | Path | None = None) -> int:
-    """Récord personal de Práctica guardado en ``datos/config.json``."""
+    """Récord personal de Mini juego guardado en ``datos/config.json``."""
     return cargar_ajustes(ruta).record_practica
 
 

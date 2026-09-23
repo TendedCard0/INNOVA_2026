@@ -135,7 +135,7 @@ class PipelineVision:
         self.usar_cuerpo = bool(activo)
 
     def set_solo_estatico(self, activo: bool) -> None:
-        """Práctica: matching estático de letras, sin enrutado a DTW."""
+        """Mini juego: matching estático de letras, sin enrutado a DTW."""
         rec = self.reconocedor
         setter = getattr(rec, "set_solo_estatico", None)
         if callable(setter):

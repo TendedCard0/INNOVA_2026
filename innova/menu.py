@@ -46,8 +46,8 @@ OPCIONES_MENU: tuple[tuple[str, str, str], ...] = (
     ),
     (
         DESTINO_PRACTICA,
-        "Práctica",
-        "Letras en 5 segundos · récord personal.",
+        "Mini juego",
+        "Contrarreloj de letras · récord personal.",
     ),
     (
         DESTINO_CAPTURA,
@@ -88,11 +88,12 @@ TEXTO_ACERCA = (
     "El uso diario se divide en «Abecedario» (letras) y «Vocabulario» (palabras). "
     "Capturar plantillas y la biblioteca organizan el banco de señas: elige Letra o "
     "Palabra al guardar, y filtra igual al revisar.\n\n"
-    "Práctica toma una letra estática que ya capturaste, la muestra en grande y "
-    "da 5 segundos para señarla. Cada acierto estable suma un punto y sale otra "
-    "letra. Si se acaba el tiempo, o la seña estable es otra letra, la partida "
-    "termina y solo se guarda el récord (la puntuación más alta) en "
-    "datos/config.json. No hay una lista de palabras ni plantillas precargadas.\n\n"
+    "Mini juego toma una letra estática que ya capturaste y da 5 segundos para "
+    "señarla. Si la seña estable llega en menos de 1 segundo suma 1000 puntos; "
+    "entre 1 y 3 segundos, 700; de 3 a menos de 5, 500. Luego sale otra letra. "
+    "Si se acaba el tiempo, o la seña estable es otra letra, la partida termina "
+    "y solo se guarda el récord (la puntuación más alta) en datos/config.json. "
+    "No hay una lista de palabras ni plantillas precargadas.\n\n"
     "Las letras estáticas (A, B, C…) se comparan fotograma a fotograma. Las que "
     "llevan trayectoria (J, Ñ, Z…) se graban como secuencia y se reconocen con "
     "Dynamic Time Warping. Si la mano se mueve con claridad durante ~0,4–0,8 s, "

@@ -62,7 +62,7 @@ class TestMenuNavegacion(unittest.TestCase):
             [
                 "Abecedario",
                 "Vocabulario",
-                "Práctica",
+                "Mini juego",
                 "Capturar plantillas",
                 "Biblioteca de señas",
                 "Configuración",
@@ -77,8 +77,8 @@ class TestMenuNavegacion(unittest.TestCase):
         self.assertEqual(destinos[1], DESTINO_VOCABULARIO)
         self.assertEqual(destinos[2], DESTINO_PRACTICA)
         _destino, _etiqueta, descripcion = OPCIONES_MENU[2]
-        self.assertIn("5 segundos", descripcion)
         self.assertIn("récord", descripcion)
+        self.assertNotIn("Práctica", etiquetas_menu())
 
     def test_categoria_de_destino(self) -> None:
         self.assertEqual(categoria_de_destino(DESTINO_ABECEDARIO), "letra")
@@ -104,8 +104,10 @@ class TestMenuNavegacion(unittest.TestCase):
         self.assertIn("2b", TEXTO_ACERCA)
         self.assertIn("Abecedario", TEXTO_ACERCA)
         self.assertIn("Vocabulario", TEXTO_ACERCA)
-        self.assertIn("Práctica", TEXTO_ACERCA)
+        self.assertIn("Mini juego", TEXTO_ACERCA)
+        self.assertIn("1000", TEXTO_ACERCA)
         self.assertIn("récord", TEXTO_ACERCA)
+        self.assertNotIn("Práctica", TEXTO_ACERCA)
         self.assertIn("DTW", TEXTO_ACERCA)
         self.assertIn("Lengua de Señas Mexicana", TEXTO_ACERCA)
         self.assertNotIn("Iniciar reconocimiento", TEXTO_ACERCA)
