@@ -150,10 +150,11 @@ def _recorrer_widgets(widget: Any, fn: Callable[[Any], None]) -> None:
 
 
 class MarcaMamatlatolli(ctk.CTkFrame):
-    """Logo oficial (`assets/logo.png`) o marco placeholder, centrado, más el wordmark.
+    """Logo oficial (`assets/logo.png`) o marco placeholder, centrado.
 
-    El PNG oficial trae la M, el wordmark y la frase. Se encaja en una caja
-    ancha sin deformarlo. Si el archivo no está, vuelve el marco tríadico.
+    El PNG ya trae la M, el nombre y «Comunicación sin barreras.»: no se
+    repite un título ni el subtítulo de LSM debajo. Si el archivo no está,
+    el marco tríadico sí muestra el nombre, el subtítulo y la tira de color.
     """
 
     _ANCHO_LOGO = 440
@@ -167,7 +168,21 @@ class MarcaMamatlatolli(ctk.CTkFrame):
         else:
             pil, self._es_logo_archivo = imagen_logo(self._LADO_PLACEHOLDER)
         self._logo_ctk = ctk.CTkImage(light_image=pil, dark_image=pil, size=pil.size)
-        ctk.CTkLabel(self, image=self._logo_ctk, text="").pack(pady=(4, 0))
+        # El PNG oficial trae el nombre en azul marino. En modo oscuro esa tinta
+        # se pierde sobre el fondo; una placa clara lo deja legible sin repetir el texto.
+        self._sobre_placa_clara = self._es_logo_archivo and tema.MODO_ACTUAL == tema.TEMA_OSCURO
+        if self._sobre_placa_clara:
+            placa = ctk.CTkFrame(
+                self,
+                fg_color=tema.PALETA_CLARA["COLOR_FONDO"],
+                corner_radius=28,
+            )
+            placa.pack(pady=(4, 8))
+            ctk.CTkLabel(placa, image=self._logo_ctk, text="").pack(padx=22, pady=12)
+        else:
+            ctk.CTkLabel(self, image=self._logo_ctk, text="").pack(pady=(4, 8))
+        if self._es_logo_archivo:
+            return
         ctk.CTkLabel(
             self,
             text=NOMBRE_PRODUCTO,
@@ -181,7 +196,7 @@ class MarcaMamatlatolli(ctk.CTkFrame):
             text_color=tema.COLOR_TEXTO_MUDO,
         ).pack(pady=(2, 10))
         tira = ctk.CTkFrame(self, fg_color="transparent")
-        tira.pack()
+        tira.pack(pady=(0, 6))
         for color in tema.TRIDADA:
             segmento = ctk.CTkFrame(
                 tira,

@@ -280,6 +280,11 @@ def acento_suave_de_indice(indice: int) -> str:
 
 RUTA_ASSETS = Path(__file__).resolve().parent.parent / "assets"
 RUTA_LOGO = RUTA_ASSETS / "logo.png"
+RUTA_ICONO_PNG = RUTA_ASSETS / "icono.png"
+RUTA_ICONO_ICO = RUTA_ASSETS / "icono.ico"
+# Tamaños que Windows usa en la barra de título, la barra de tareas y el explorador.
+TAMANOS_ICONO: tuple[int, ...] = (16, 24, 32, 48, 64, 128, 256)
+_LADO_ICONO_PNG = 512
 
 _ICONOS_MENU = (
     "abecedario",
@@ -326,6 +331,150 @@ def imagen_logo_encajada(
     copia = Image.open(ruta).convert("RGBA")
     copia.thumbnail((max(1, ancho_max), max(1, alto_max)), Image.Resampling.LANCZOS)
     return copia, True
+
+
+def resolver_icono_png(base: Path | None = None) -> Optional[Path]:
+    """``assets/icono.png`` (marca M + mano) si el archivo existe."""
+    candidato = (base if base is not None else RUTA_ASSETS) / "icono.png"
+    return candidato if candidato.is_file() else None
+
+
+def resolver_icono_ico(base: Path | None = None) -> Optional[Path]:
+    """``assets/icono.ico`` multi-tamaño si el archivo existe."""
+    candidato = (base if base is not None else RUTA_ASSETS) / "icono.ico"
+    return candidato if candidato.is_file() else None
+
+
+def recorte_marca(imagen: Image.Image, margen: float = 0.08) -> Image.Image:
+    """Recorta la marca (la M con la mano) y la deja en un cuadrado transparente.
+
+    El logo oficial apila la marca, el nombre y el eslogan. A 16–32 px el
+    texto no se lee, así que el icono de la ventana usa solo el bloque de
+    arriba cuando es más alto que el resto y casi cuadrado. Si la imagen
+    ya es una sola pieza, se encuadra entera.
+    """
+    rgba = imagen.convert("RGBA")
+    bandas = _bandas_contenido(rgba)
+    if not bandas:
+        return _enmarcar_cuadrado(rgba, margen=0.0)
+    if len(bandas) >= 2 and _banda_superior_es_marca(bandas):
+        pieza = rgba.crop(bandas[0])
+    else:
+        x0 = min(b[0] for b in bandas)
+        y0 = min(b[1] for b in bandas)
+        x1 = max(b[2] for b in bandas)
+        y1 = max(b[3] for b in bandas)
+        pieza = rgba.crop((x0, y0, x1, y1))
+    return _enmarcar_cuadrado(pieza, margen=margen)
+
+
+def imagen_icono_app(base: Path | None = None) -> Optional[Image.Image]:
+    """Icono cuadrado de la app: ``icono.png`` o, si falta, el recorte del logo."""
+    ruta = resolver_icono_png(base)
+    if ruta is not None:
+        return Image.open(ruta).convert("RGBA")
+    logo = resolver_logo(base)
+    if logo is None:
+        return None
+    return recorte_marca(Image.open(logo))
+
+
+def guardar_iconos(marca: Image.Image, directorio: Path) -> tuple[Path, Path]:
+    """Escribe ``icono.png`` (512 px) e ``icono.ico`` con los tamaños de Windows.
+
+    El ``.ico`` va en mapa de bits de 32 bits para que Tk en Windows lo cargue
+    con ``iconbitmap`` (barra de título y barra de tareas).
+    """
+    directorio.mkdir(parents=True, exist_ok=True)
+    rgba = marca.convert("RGBA")
+    if rgba.size[0] != rgba.size[1]:
+        rgba = _enmarcar_cuadrado(rgba, margen=0.08)
+    if min(rgba.size) < TAMANOS_ICONO[-1]:
+        rgba = rgba.resize((TAMANOS_ICONO[-1], TAMANOS_ICONO[-1]), Image.Resampling.LANCZOS)
+    png = directorio / "icono.png"
+    ico = directorio / "icono.ico"
+    exportable = rgba if rgba.size == (_LADO_ICONO_PNG, _LADO_ICONO_PNG) else rgba.resize(
+        (_LADO_ICONO_PNG, _LADO_ICONO_PNG), Image.Resampling.LANCZOS
+    )
+    exportable.save(png, format="PNG")
+    fuente = rgba if min(rgba.size) >= TAMANOS_ICONO[-1] else exportable
+    fuente.save(
+        ico,
+        format="ICO",
+        sizes=[(lado_icono, lado_icono) for lado_icono in TAMANOS_ICONO],
+        bitmap_format="bmp",
+    )
+    return png, ico
+
+
+def _bandas_contenido(imagen: Image.Image, umbral: int = 16) -> list[tuple[int, int, int, int]]:
+    """Cajas ``(x0, y0, x1, y1)`` de cada bloque opaco, de arriba a abajo.
+
+    Las coordenadas derechas e inferiores son exclusivas, como ``Image.crop``.
+    Huecos verticales pequeños (antialiasing) no parten un mismo dibujo.
+    """
+    alpha = imagen.getchannel("A")
+    ancho, alto = alpha.size
+    if ancho == 0 or alto == 0:
+        return []
+    datos = alpha.tobytes()
+    filas = [max(datos[y * ancho : (y + 1) * ancho]) > umbral for y in range(alto)]
+    hueco_minimo = max(4, alto // 50)
+    bandas_y: list[tuple[int, int]] = []
+    inicio: int | None = None
+    hueco = 0
+    for y, activa in enumerate(filas):
+        if activa:
+            if inicio is None:
+                inicio = y
+            hueco = 0
+            continue
+        if inicio is None:
+            continue
+        hueco += 1
+        if hueco >= hueco_minimo:
+            bandas_y.append((inicio, y - hueco))
+            inicio = None
+            hueco = 0
+    if inicio is not None:
+        fin = alto - 1
+        while fin > inicio and not filas[fin]:
+            fin -= 1
+        bandas_y.append((inicio, fin))
+
+    cajas: list[tuple[int, int, int, int]] = []
+    for y0, y1 in bandas_y:
+        franja = alpha.crop((0, y0, ancho, y1 + 1))
+        bbox = franja.point(lambda valor: 255 if valor > umbral else 0).getbbox()
+        if bbox is None:
+            continue
+        cajas.append((bbox[0], y0, bbox[2], y1 + 1))
+    return cajas
+
+
+def _banda_superior_es_marca(bandas: list[tuple[int, int, int, int]]) -> bool:
+    x0, y0, x1, y1 = bandas[0]
+    alto = max(1, y1 - y0)
+    ancho = max(1, x1 - x0)
+    if ancho / alto > 1.75:
+        return False
+    alto_resto = sum(max(1, b[3] - b[1]) for b in bandas[1:])
+    return alto >= alto_resto
+
+
+def _enmarcar_cuadrado(imagen: Image.Image, margen: float) -> Image.Image:
+    bbox = imagen.getchannel("A").getbbox()
+    if bbox is None:
+        lado = max(1, imagen.size[0], imagen.size[1])
+        return Image.new("RGBA", (lado, lado), (0, 0, 0, 0))
+    recorte = imagen.crop(bbox)
+    ancho, alto = recorte.size
+    lado_util = max(ancho, alto)
+    margen_px = int(round(lado_util * max(0.0, margen)))
+    lado = max(1, lado_util + 2 * margen_px)
+    lienzo = Image.new("RGBA", (lado, lado), (0, 0, 0, 0))
+    lienzo.paste(recorte, ((lado - ancho) // 2, (lado - alto) // 2), recorte)
+    return lienzo
 
 
 def icono_menu(nombre: str, acento: str, lado: int = 56) -> Image.Image:
