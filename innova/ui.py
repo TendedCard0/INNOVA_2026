@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import sys
+import tkinter
 from dataclasses import replace
 
 import customtkinter as ctk
@@ -35,11 +37,70 @@ from innova.pantallas import (
 from innova.tema import aplicar_tema
 
 
+# Sin este id, Windows agrupa la ventana con python.exe y la barra de
+# tareas sigue mostrando el icono de Python aunque la ventana tenga otro.
+ID_APLICACION_WINDOWS = "Mamatlatolli.ReconocimientoLSM"
+
+
+def preparar_identidad_windows() -> None:
+    """Separa el proceso del icono de Python en la barra de tareas de Windows."""
+    if sys.platform != "win32":
+        return
+    try:
+        import ctypes
+
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(ID_APLICACION_WINDOWS)
+    except (AttributeError, OSError):
+        return
+
+
+def aplicar_icono_ventana(ventana: ctk.CTk) -> None:
+    """Pone la marca de Mamatlatolli en la barra de título y en la de tareas.
+
+    En Windows, ``iconbitmap`` con el ``.ico`` multi-tamaño es lo que usa la
+    barra de tareas. En los demás sistemas, ``iconphoto`` usa el PNG.
+    """
+    ventana._iconos_mamatlatolli = []
+    ventana._icono_aplicado = False
+    if sys.platform == "win32":
+        ruta_ico = tema.resolver_icono_ico()
+        if ruta_ico is not None:
+            try:
+                ventana.iconbitmap(default=ruta_ico.as_posix())
+                ventana._icono_aplicado = True
+                return
+            except tkinter.TclError:
+                pass
+    imagen = tema.imagen_icono_app()
+    if imagen is None:
+        return
+    try:
+        from PIL import Image, ImageTk
+    except ImportError:
+        return
+    fotos = []
+    for lado in (16, 32, 48, 64, 128, 256):
+        if min(imagen.size) < lado:
+            continue
+        copia = imagen if imagen.size == (lado, lado) else imagen.resize((lado, lado), Image.Resampling.LANCZOS)
+        fotos.append(ImageTk.PhotoImage(copia, master=ventana))
+    if not fotos:
+        fotos.append(ImageTk.PhotoImage(imagen, master=ventana))
+    try:
+        ventana.iconphoto(True, *fotos)
+    except tkinter.TclError:
+        return
+    ventana._iconos_mamatlatolli = fotos
+    ventana._icono_aplicado = True
+
+
 class VentanaMamatlatolli(ctk.CTk):
     def __init__(self, *, modo_demo: bool = False, indice_camara: int = 0) -> None:
+        preparar_identidad_windows()
         ajustes = cargar_ajustes()
         aplicar_tema(ajustes.tema)
         super().__init__()
+        aplicar_icono_ventana(self)
         self._modo_demo_cli = modo_demo
         self._indice_camara = indice_camara
         self._ajustes: Ajustes = ajustes

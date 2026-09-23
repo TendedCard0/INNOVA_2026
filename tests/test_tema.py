@@ -6,6 +6,7 @@ import json
 import os
 import tempfile
 import unittest
+import unittest.mock
 from pathlib import Path
 
 from PIL import Image
@@ -121,7 +122,7 @@ class TestPantallaMenuTk(unittest.TestCase):
         from innova.pantallas import MarcaMamatlatolli, PantallaMenu
         from innova.tema import aplicar_tema
 
-        aplicar_tema()
+        aplicar_tema("claro")
         raiz = ctk.CTk()
         raiz.withdraw()
         destinos: list[str] = []
@@ -138,6 +139,12 @@ class TestPantallaMenuTk(unittest.TestCase):
             self.assertLessEqual(ancho, MarcaMamatlatolli._ANCHO_LOGO)
             self.assertLessEqual(alto, MarcaMamatlatolli._ALTO_LOGO)
             self.assertGreater(ancho, alto)
+            from innova.config import NOMBRE_PRODUCTO, SUBTITULO
+
+            textos_marca = _textos_de(marca)
+            self.assertNotIn(NOMBRE_PRODUCTO, textos_marca)
+            self.assertNotIn(SUBTITULO, textos_marca)
+            self.assertFalse(marca._sobre_placa_clara)
             etiquetas = [OPCIONES_MENU[i][1] for i in range(8)]
             self.assertEqual(etiquetas[0], "Abecedario")
             self.assertEqual(etiquetas[1], "Vocabulario")
@@ -151,6 +158,47 @@ class TestPantallaMenuTk(unittest.TestCase):
             self.assertEqual(destinos[-1], "practica")
             pantalla._tarjetas[7]._on_ir(pantalla._tarjetas[7]._destino)
             self.assertEqual(destinos[-1], "acerca")
+        finally:
+            raiz.destroy()
+
+    def test_en_oscuro_el_logo_queda_sobre_placa_clara_sin_titulo(self) -> None:
+        import customtkinter as ctk
+
+        from innova.config import NOMBRE_PRODUCTO, SUBTITULO
+        from innova.pantallas import MarcaMamatlatolli
+        from innova.tema import aplicar_tema
+
+        aplicar_tema("oscuro")
+        raiz = ctk.CTk()
+        raiz.withdraw()
+        try:
+            marca = MarcaMamatlatolli(raiz)
+            self.assertTrue(marca._es_logo_archivo)
+            self.assertTrue(marca._sobre_placa_clara)
+            textos = _textos_de(marca)
+            self.assertNotIn(NOMBRE_PRODUCTO, textos)
+            self.assertNotIn(SUBTITULO, textos)
+        finally:
+            raiz.destroy()
+            aplicar_tema("claro")
+
+    def test_sin_png_el_placeholder_conserva_nombre_y_subtitulo(self) -> None:
+        import customtkinter as ctk
+
+        from innova.config import NOMBRE_PRODUCTO, SUBTITULO
+        from innova.pantallas import MarcaMamatlatolli
+
+        raiz = ctk.CTk()
+        raiz.withdraw()
+        try:
+            with unittest.mock.patch("innova.pantallas.resolver_logo", return_value=None), unittest.mock.patch(
+                "innova.tema.resolver_logo", return_value=None
+            ):
+                marca = MarcaMamatlatolli(raiz)
+            self.assertFalse(marca._es_logo_archivo)
+            textos = _textos_de(marca)
+            self.assertIn(NOMBRE_PRODUCTO, textos)
+            self.assertIn(SUBTITULO, textos)
         finally:
             raiz.destroy()
 
@@ -312,6 +360,23 @@ class TestPreferenciaTema(unittest.TestCase):
         self.assertEqual(tema.COLOR_FONDO, PALETA_CLARA["COLOR_FONDO"])
         self.assertEqual(config.COLOR_FONDO, PALETA_CLARA["COLOR_FONDO"])
         self.assertEqual(tema.MODO_ACTUAL, "claro")
+
+
+def _textos_de(widget) -> list[str]:
+    textos: list[str] = []
+
+    def visitar(actual) -> None:
+        try:
+            valor = actual.cget("text")
+        except Exception:  # noqa: BLE001 — no todos los widgets tienen texto
+            valor = None
+        if isinstance(valor, str) and valor:
+            textos.append(valor)
+        for hijo in actual.winfo_children():
+            visitar(hijo)
+
+    visitar(widget)
+    return textos
 
 
 def _widget_con_texto(widget, texto: str):

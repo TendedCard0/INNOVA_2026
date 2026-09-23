@@ -15,7 +15,12 @@ El programa se llama **Mamatlatolli**. El uso diario son dos modos:
 
 Al abrir `python app.py` aparece el menú (español), con el logo oficial
 (`assets/logo.png`) centrado arriba —o un marco placeholder si el archivo
-no está— y ocho tarjetas:
+no está— y ocho tarjetas. El PNG ya incluye el nombre y «Comunicación sin
+barreras.», así que el menú no repite ese título ni el subtítulo de LSM.
+La ventana usa la marca M + mano (`assets/icono.png`; en Windows,
+`assets/icono.ico` también en la barra de tareas). En modo oscuro el logo
+se apoya en una placa clara: el nombre del PNG es azul marino y si no,
+no se leería. Las ocho tarjetas:
 
 | Opción | Qué hace |
 | --- | --- |
@@ -37,7 +42,8 @@ cierra si estás escribiendo una etiqueta).
 La cromática está en `innova/tema.py` (naranja, lima e índigo), con paleta
 clara y paleta oscura. El menú muestra tarjetas en dos columnas (la última,
 *Acerca de*, ocupa el ancho) y el logo oficial (`assets/logo.png`) centrado
-arriba. Si el archivo no está, se usa un marco placeholder. Abajo, el
+arriba, sin título duplicado. Si el archivo no está, se usa un marco
+placeholder con el nombre. Abajo, el
 control **Apariencia** cambia entre **Modo claro** y **Modo oscuro** sin
 salir del menú. Lo mismo está en **Configuración**. La elección se guarda
 en `datos/config.json` (`"tema": "claro"` o `"tema": "oscuro"`) y

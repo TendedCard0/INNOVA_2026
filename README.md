@@ -4,13 +4,13 @@ Prototipo de escritorio para **reconocer Lengua de Señas Mexicana (LSM)** a par
 
 **Mamatlatolli** abre un menú principal de tarjetas: **Abecedario** (letras) y **Vocabulario** (palabras) por separado, **Mini juego** (letra estática a contrarreloj y récord personal), más captura de plantillas, biblioteca, configuración y modo demostración.
 
-El menú usa acentos tríadicos (**naranja**, **lima** e **índigo**) sobre fondo claro u oscuro. El logo oficial vive en `assets/logo.png` (PNG transparente) y se muestra centrado arriba. Si ese archivo no está, el menú usa un marco placeholder.
+El menú usa acentos tríadicos (**naranja**, **lima** e **índigo**) sobre fondo claro u oscuro. El logo oficial vive en `assets/logo.png` (PNG transparente) y se muestra centrado arriba, sin repetir el nombre ni el eslogan: ya van en el PNG. Si ese archivo no está, el menú usa un marco placeholder con el nombre. La ventana y, en Windows, la barra de tareas usan la marca (la M con la mano) de `assets/icono.png` y `assets/icono.ico`.
 
 > Proyecto estudiantil — Instituto Tecnológico de San Juan del Río.
 
 ## ¿Qué hace hoy? (Abecedario y Vocabulario)
 
-1. Arranca en un **menú** de tarjetas en español: *Abecedario*, *Vocabulario*, *Mini juego*, *Capturar plantillas*, *Biblioteca de señas*, *Configuración*, *Modo demostración*, *Acerca de Mamatlatolli*. El logo (o su placeholder) va centrado arriba.
+1. Arranca en un **menú** de tarjetas en español: *Abecedario*, *Vocabulario*, *Mini juego*, *Capturar plantillas*, *Biblioteca de señas*, *Configuración*, *Modo demostración*, *Acerca de Mamatlatolli*. El logo (o su placeholder) va centrado arriba, sin un título duplicado debajo.
 2. Detecta hasta dos manos (MediaPipe Hands) y dibuja landmarks, conexiones y un recuadro.
 3. **Abecedario** compara solo plantillas `categoria: "letra"` (solo manos). **Vocabulario** compara solo `categoria: "palabra"` y, además de la mano, usa **pose** (33 puntos) y **rostro** (malla facial). Si aún no hay palabras, muestra un estado vacío en español.
 4. Compara una pose quieta con **plantillas estáticas** (vectores de landmarks normalizados). En palabras, la distancia mezcla mano, pose y rostro; si falta el cuerpo o la cara, esa parte se omite.
@@ -190,6 +190,8 @@ docs/esquema-datos.md      Esquema JSON (español)
 docs/menu-y-senas-dinamicas.md  Menú, captura DTW, auto vs botón
 datos/plantillas/          Plantillas JSON (locales, no se versionan)
 assets/logo.png            Logo oficial (PNG transparente). Si falta, el menú usa un placeholder
+assets/icono.png           Marca M + mano, icono de la ventana (PNG)
+assets/icono.ico           El mismo icono, multi-tamaño, para la barra de tareas en Windows
 ```
 
 ## Hoja de ruta
