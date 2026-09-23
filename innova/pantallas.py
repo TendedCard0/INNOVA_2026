@@ -963,8 +963,9 @@ class PantallaPractica(_PantallaConCamara):
         if self._partida.terminada:
             return
         vista = self._partida.observar_resultado(time.monotonic(), procesado.resultado)
-        if vista.acierto and self._pipeline is not None:
-            self._pipeline.reiniciar_estabilidad()
+        # No se reinicia el filtro aquí: un fotograma sin compromiso parece
+        # que la persona soltó la seña y el bloqueo se levanta. Si la misma
+        # seña sigue estable, volvería a sumar o cerraría la ronda al instante.
         self._pintar(vista)
         if vista.terminado:
             self._guardar_record(vista)
