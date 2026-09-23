@@ -151,6 +151,7 @@ class VistaPractica:
     motivo: str | None
     nuevo_record: bool
     puntos_obtenidos: int = 0
+    en_curso: bool = False
 
 
 def texto_fin(vista: VistaPractica) -> str:
@@ -164,14 +165,47 @@ def texto_fin(vista: VistaPractica) -> str:
     return f"{que} Puntos: {vista.puntuacion}. Récord: {vista.record}."
 
 
+SONIDO_ACIERTO = "acierto"
+SONIDO_ERROR = "error"
+SONIDO_RECORD = "record"
+
+
+def sonidos_para(
+    vista: VistaPractica,
+    *,
+    puntuacion_antes: int,
+    record_guardado: int,
+    record_anunciado: bool,
+) -> tuple[str, ...]:
+    """Efectos de un fotograma. El récord suena solo la vez que se supera el máximo."""
+    if vista.acierto:
+        sonidos = [SONIDO_ACIERTO]
+        if (
+            not record_anunciado
+            and puntuacion_antes <= record_guardado < vista.puntuacion
+        ):
+            sonidos.append(SONIDO_RECORD)
+        return tuple(sonidos)
+    if vista.terminado:
+        sonidos = [SONIDO_ERROR]
+        if (
+            not record_anunciado
+            and vista.nuevo_record
+            and vista.puntuacion > record_guardado
+        ):
+            sonidos.append(SONIDO_RECORD)
+        return tuple(sonidos)
+    return ()
+
+
 class PartidaPractica:
     """Una corrida: letra al azar, 5 s, puntos por rapidez, o fin de partida.
 
+    No arranca sola: ``iniciar`` pone en marcha el cronómetro. Un acierto
+    para el reloj hasta el siguiente ``iniciar`` (el botón Siguiente).
     Tras un acierto se ignora la misma letra comprometida hasta que la
     predicción estable cambie o se suelte. Así, seguir mostrando la seña
     que acaba de sumar no cuenta otra vez ni cierra la partida por «fallo».
-    La pantalla debe reiniciar el filtro de estabilidad al cambiar de letra;
-    este bloqueo cubre el fotograma en el que el filtro aún no se limpió.
     """
 
     def __init__(
@@ -202,9 +236,18 @@ class PartidaPractica:
         self.letra = elegir_letra(self.letras, None, self._rng)
         self._inicio: float | None = None
         self._bloqueada: str | None = None
+        self.en_curso = False
         self.terminada = False
         self.motivo: str | None = None
         self.nuevo_record = False
+
+    def iniciar(self, ahora: float) -> VistaPractica:
+        """Arranca el cronómetro de la letra actual. No reinicia una ronda ya en curso."""
+        if self.terminada or self.en_curso:
+            return self._vista(ahora, acierto=False)
+        self.en_curso = True
+        self._inicio = float(ahora)
+        return self._vista(ahora, acierto=False)
 
     def observar(
         self,
@@ -214,11 +257,8 @@ class PartidaPractica:
         comprometida: bool,
     ) -> VistaPractica:
         """Avanza el reloj y aplica la predicción estable de este fotograma."""
-        if self.terminada:
+        if self.terminada or not self.en_curso:
             return self._vista(ahora, acierto=False)
-
-        if self._inicio is None:
-            self._inicio = float(ahora)
 
         letra_vista = normalizar_letra(etiqueta) if comprometida else ""
 
@@ -263,11 +303,14 @@ class PartidaPractica:
         self.puntuacion += obtenidos
         self._bloqueada = anterior
         self.letra = elegir_letra(self.letras, anterior, self._rng)
-        self._inicio = float(ahora)
+        # La siguiente letra espera a Inicio / Siguiente: el reloj no sigue solo.
+        self.en_curso = False
+        self._inicio = None
         return self._vista(ahora, acierto=True, puntos_obtenidos=obtenidos)
 
     def _terminar(self, motivo: str, ahora: float) -> VistaPractica:
         self.terminada = True
+        self.en_curso = False
         self.motivo = motivo
         self._inicio = float(ahora)
         vigente, es_nuevo = record_tras_partida(self.puntuacion, self.record)
@@ -286,6 +329,7 @@ class PartidaPractica:
             motivo=self.motivo,
             nuevo_record=self.nuevo_record,
             puntos_obtenidos=puntos_obtenidos,
+            en_curso=self.en_curso and not self.terminada,
         )
 
     def _restante(self, ahora: float) -> float:

@@ -18,7 +18,7 @@ El menú usa acentos tríadicos (**naranja**, **lima** e **índigo**) sobre fond
 6. Aplica un **filtro de estabilidad** antes de comprometer una seña (las dinámicas se confirman al terminar el gesto, no en cada fotograma).
 7. Permite **organizar** el banco (captura Letra/Palabra × estática/dinámica; biblioteca con filtro letra | palabra | todas).
 8. En Vocabulario dibuja un esqueleto y puntos del rostro con los colores del tema (índigo, lima, naranja).
-9. **Mini juego** muestra una letra estática que ya capturaste y un cronómetro circular de **5 segundos**. La seña estable suma **1000** puntos si llega en menos de 1 s, **700** entre 1 y 3 s, y **500** de 3 s a menos de 5 s. A los 5 s, o si la seña estable es otra letra, la partida termina. En `datos/config.json` se guarda únicamente el **récord** (la puntuación más alta).
+9. **Mini juego** espera a que pulses **Inicio**: entonces muestra una letra estática que ya capturaste y arranca un cronómetro circular de **5 segundos**. La seña estable suma **1000** puntos si llega en menos de 1 s, **700** entre 1 y 3 s, y **500** de 3 s a menos de 5 s. Un acierto detiene el reloj hasta **Siguiente**. A los 5 s, o si la seña estable es otra letra, la partida termina. En `datos/config.json` se guarda únicamente el **récord** (la puntuación más alta).
 
 Abecedario deja `pose` y `rostro` en `null` para ir más ligero. Si MediaPipe Pose o Face Mesh no cargan, Vocabulario sigue reconociendo con la mano.
 
@@ -108,11 +108,14 @@ El reconocedor **no** descarga conjuntos enormes ni entrena una red. Tú (o quie
 
 Menú → **Mini juego**. No hay una lista de palabras ni plantillas de fábrica: la partida usa las letras estáticas (`categoria: letra`, tipo estática) que guardaste en **Capturar plantillas**.
 
-1. En pantalla aparece una letra grande y un **cronómetro circular** de **5 segundos**, con la cuenta numérica.
-2. Seña esa letra con la mano, quieta, frente a la cámara. Un parpadeo no cuenta: tiene que estabilizarse el mismo filtro que usa Abecedario.
-3. Si aciertas a tiempo, sumas según la rapidez: **1000** (menos de 1 s), **700** (de 1 s a menos de 3 s) o **500** (de 3 s a menos de 5 s). Sale otra letra (sin repetir la anterior, si hay más de una) y el reloj vuelve a 5 segundos.
-4. A los **5 segundos** sin acierto, o si la seña estable es otra letra, la partida termina. **Reintentar** empieza de cero; **Menú** vuelve al inicio.
-5. Solo se conserva el **récord** personal (`record_practica` en `datos/config.json`). Una puntuación más baja no lo reemplaza.
+1. Al entrar se ve el **récord** y el botón **Inicio**. La letra no aparece y el cronómetro no corre.
+2. **Inicio** muestra la letra y arranca el **cronómetro circular** de **5 segundos**, con la cuenta numérica y un tic-tac suave.
+3. Seña esa letra con la mano, quieta, frente a la cámara. Un parpadeo no cuenta: tiene que estabilizarse el mismo filtro que usa Abecedario.
+4. Si aciertas a tiempo, sumas según la rapidez: **1000** (menos de 1 s), **700** (de 1 s a menos de 3 s) o **500** (de 3 s a menos de 5 s). Suena el acierto, el reloj se detiene y **Siguiente** arma otra letra (sin repetir la anterior, si hay más de una) sin borrar los puntos.
+5. A los **5 segundos** sin acierto, o si la seña estable es otra letra, suena el error y la partida termina. **Inicio** empieza de cero; **Menú** (o Esc / Q) vuelve al inicio. Si esa partida superó el récord guardado, suena una vez el récord nuevo.
+6. Solo se conserva el **récord** personal (`record_practica` en `datos/config.json`). Una puntuación más baja no lo reemplaza.
+
+Los efectos están en `assets/sonidos/` (WAV sintetizados en el propio proyecto, sin audio de terceros). Si el equipo no tiene salida de audio, Mini juego sigue igual, en silencio.
 
 Si todavía no hay letras estáticas, Mini juego lo dice en español y pide capturarlas antes.
 
@@ -167,6 +170,7 @@ innova/
   menu.py                  Destinos del menú (sin Tk)
   pantallas.py             Menú, reconocimiento, práctica, captura, biblioteca, ajustes
   practica.py              Mini juego: letras en 5 segundos, puntos por rapidez y récord
+  audio.py                 Efectos del mini juego (acierto, error, récord, tic-tac)
   ui.py                    Ventana (CustomTkinter) y navegación
   camara.py                Captura (cámara real o fuente demo)
   detector.py              MediaPipe Hands + detector de demostración

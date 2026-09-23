@@ -13,6 +13,7 @@ from PIL import Image, ImageDraw
 
 from innova import tema
 from innova.ajustes import Ajustes, cargar_record_practica, guardar_ajustes, guardar_record_practica
+from innova.audio import AudioMiniJuego
 from innova.camara import CamaraNoDisponibleError
 from innova.config import (
     ALTO_VIDEO,
@@ -33,6 +34,7 @@ from innova.practica import (
     PartidaPractica,
     VistaPractica,
     letras_estaticas_disponibles,
+    sonidos_para,
     texto_fin,
 )
 from innova.tema import (
@@ -797,13 +799,17 @@ class PantallaPractica(_PantallaConCamara):
         ajustes: Ajustes,
         on_volver: Callable[[], None],
         on_record: Callable[[int], None] | None = None,
+        audio: AudioMiniJuego | None = None,
     ) -> None:
         self._on_record = on_record
+        self._audio = audio if audio is not None else AudioMiniJuego()
         self._letras = letras_estaticas_disponibles()
         self._record_guardado = False
+        self._record_anunciado = False
+        self._record_referencia = cargar_record_practica()
         self._partida: PartidaPractica | None = None
         if self._letras:
-            self._partida = PartidaPractica(self._letras, record=cargar_record_practica())
+            self._partida = PartidaPractica(self._letras, record=self._record_referencia)
         super().__init__(
             master,
             modo_demo=modo_demo,
@@ -878,16 +884,19 @@ class PantallaPractica(_PantallaConCamara):
         )
         self.lbl_mensaje.pack(anchor="w", padx=20, pady=(0, 8))
 
-        self.marco_fin = ctk.CTkFrame(self.marco_juego, fg_color="transparent")
-        ctk.CTkButton(
-            self.marco_fin,
-            text="Reintentar",
+        self.btn_inicio = ctk.CTkButton(
+            self.marco_juego,
+            text="Inicio",
+            height=42,
             fg_color=tema.COLOR_ACENTO,
             hover_color=tema.COLOR_ACENTO_HOVER,
             text_color=tema.COLOR_TEXTO_INVERSO,
+            font=ctk.CTkFont(size=16, weight="bold"),
             corner_radius=12,
-            command=self._reintentar,
-        ).pack(fill="x", pady=(0, 8))
+            command=self._pulsar_inicio,
+        )
+
+        self.marco_fin = ctk.CTkFrame(self.marco_juego, fg_color="transparent")
         ctk.CTkButton(
             self.marco_fin,
             text="Menú",
@@ -953,26 +962,43 @@ class PantallaPractica(_PantallaConCamara):
         if getattr(self, "lbl_mensaje", None) is not None:
             self.lbl_mensaje.configure(text=f"Error al procesar: {exc}", text_color=tema.COLOR_ERROR)
 
+    def cerrar_pantalla(self) -> None:
+        audio = getattr(self, "_audio", None)
+        if audio is not None:
+            audio.cerrar()
+        super().cerrar_pantalla()
+
     def _on_procesado(self, procesado: Any) -> None:
         n = len(procesado.manos)
         self.lbl_estado.configure(text=f"Manos: {n}   ·   {procesado.fuente}")
-        if self._partida is None:
+        if self._partida is None or not self._partida.en_curso:
             return
         estable = procesado.resultado.etiqueta or "—"
         self.lbl_sena.configure(text=f"Tu seña estable: {estable}")
-        if self._partida.terminada:
-            return
+        antes = self._partida.puntuacion
         vista = self._partida.observar_resultado(time.monotonic(), procesado.resultado)
         # No se reinicia el filtro aquí: un fotograma sin compromiso parece
         # que la persona soltó la seña y el bloqueo se levanta. Si la misma
         # seña sigue estable, volvería a sumar o cerraría la ronda al instante.
         self._pintar(vista)
+        if vista.acierto or vista.terminado:
+            self._audio.detener_reloj()
+            for nombre in sonidos_para(
+                vista,
+                puntuacion_antes=antes,
+                record_guardado=self._record_referencia,
+                record_anunciado=self._record_anunciado,
+            ):
+                if nombre == "record":
+                    self._record_anunciado = True
+                self._audio.reproducir(nombre)
         if vista.terminado:
             self._guardar_record(vista)
 
     def _pintar(self, vista: VistaPractica) -> None:
+        visible = vista.letra if vista.en_curso or vista.terminado else "—"
         self.lbl_letra.configure(
-            text=vista.letra,
+            text=visible,
             text_color=tema.COLOR_ERROR if vista.terminado else tema.COLOR_ACENTO,
         )
         color_tiempo = _color_tiempo(vista.restante_s, terminado=vista.terminado)
@@ -980,25 +1006,58 @@ class PantallaPractica(_PantallaConCamara):
         self._pintar_cronometro(vista.restante_s, color_tiempo, terminado=vista.terminado)
         self.lbl_puntos.configure(text=f"Puntos: {vista.puntuacion}")
         self.lbl_record.configure(text=f"Récord: {vista.record}")
+        self._colocar_inicio(vista)
         if vista.terminado:
             color = tema.COLOR_OK if vista.nuevo_record else tema.COLOR_AVISO
             self.lbl_mensaje.configure(text=texto_fin(vista), text_color=color)
             if not self.marco_fin.winfo_ismapped():
                 self.marco_fin.pack(fill="x", padx=20, pady=(4, 8))
             return
+        if self.marco_fin.winfo_ismapped():
+            self.marco_fin.pack_forget()
         if vista.acierto:
-            # El acierto dura un fotograma; el aviso se queda un momento para leerse.
             self._aviso_hasta = time.monotonic() + 1.2
             self.lbl_mensaje.configure(
                 text=f"¡Bien! +{vista.puntos_obtenidos}",
                 text_color=tema.COLOR_OK,
             )
             return
+        if not vista.en_curso:
+            if time.monotonic() >= self._aviso_hasta or vista.puntuacion <= 0:
+                self.lbl_mensaje.configure(
+                    text="Pulsa Inicio. La letra y los 5 segundos arrancan al pulsar.",
+                    text_color=tema.COLOR_TEXTO_MUDO,
+                )
+            return
         if time.monotonic() >= self._aviso_hasta:
             self.lbl_mensaje.configure(
                 text="Menos de 1 s: 1000 · hasta 3 s: 700 · antes de 5 s: 500.",
                 text_color=tema.COLOR_TEXTO_MUDO,
             )
+
+    def _colocar_inicio(self, vista: VistaPractica) -> None:
+        if vista.en_curso:
+            if self.btn_inicio.winfo_ismapped():
+                self.btn_inicio.pack_forget()
+            return
+        texto = "Inicio" if vista.terminado or vista.puntuacion <= 0 else "Siguiente"
+        self.btn_inicio.configure(text=texto)
+        if not self.btn_inicio.winfo_ismapped():
+            self.btn_inicio.pack(fill="x", padx=20, pady=(0, 8))
+
+    def _pulsar_inicio(self) -> None:
+        if self._partida is None:
+            return
+        if self._partida.terminada:
+            self._preparar_partida_nueva()
+            if self._partida is None:
+                return
+        if self._pipeline is not None:
+            self._pipeline.reiniciar_estabilidad()
+        vista = self._partida.iniciar(time.monotonic())
+        self._audio.iniciar_reloj()
+        self.lbl_sena.configure(text="Tu seña estable: —")
+        self._pintar(vista)
 
     def _guardar_record(self, vista: VistaPractica) -> None:
         if self._record_guardado:
@@ -1011,9 +1070,13 @@ class PantallaPractica(_PantallaConCamara):
         if self._on_record is not None:
             self._on_record(vigente)
 
-    def _reintentar(self) -> None:
+    def _preparar_partida_nueva(self) -> None:
+        """Arma otra partida en espera. El cronómetro sigue parado hasta Inicio."""
+        self._audio.detener_reloj()
         self._letras = letras_estaticas_disponibles()
         self._record_guardado = False
+        self._record_anunciado = False
+        self._record_referencia = cargar_record_practica()
         if not self._letras:
             self._partida = None
             self.marco_juego.pack_forget()
@@ -1021,16 +1084,12 @@ class PantallaPractica(_PantallaConCamara):
                 self.marco_vacio.pack(fill="both", expand=True)
             self.lbl_record_vacio.configure(text=f"Récord: {cargar_record_practica()}")
             return
-        self._partida = PartidaPractica(self._letras, record=cargar_record_practica())
+        self._partida = PartidaPractica(self._letras, record=self._record_referencia)
         self.marco_vacio.pack_forget()
         if not self.marco_juego.winfo_ismapped():
             self.marco_juego.pack(fill="both", expand=True)
         if self.marco_fin.winfo_ismapped():
             self.marco_fin.pack_forget()
-        if self._pipeline is not None:
-            self._pipeline.reiniciar_estabilidad()
-        self._pintar(_vista_inicial(self._partida))
-        self.lbl_sena.configure(text="Tu seña estable: —")
 
     def _pintar_cronometro(self, restante: float, color: str, *, terminado: bool) -> None:
         duracion = self._partida.duracion_s if self._partida is not None else 5.0

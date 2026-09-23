@@ -21,7 +21,7 @@ no está— y ocho tarjetas:
 | --- | --- |
 | **Abecedario** | Cámara en vivo, solo letras (estáticas y dinámicas). |
 | **Vocabulario** | Cámara en vivo, solo palabras. Usa mano, pose y rostro. Si aún no hay plantillas de palabra, muestra un estado vacío en español. |
-| **Mini juego** | Letra estática al azar, cronómetro de 5 segundos y puntos por rapidez (1000 / 700 / 500). Solo letras que ya capturaste; si no hay, un aviso en español. |
+| **Mini juego** | Letra estática al azar tras pulsar Inicio, cronómetro de 5 segundos y puntos por rapidez (1000 / 700 / 500). Solo letras que ya capturaste; si no hay, un aviso en español. |
 | **Capturar plantillas** | Guardar una pose o una trayectoria; eliges Letra o Palabra. |
 | **Biblioteca de señas** | Listar, filtrar (`letra` / `palabra` / `todas`), probar o borrar. |
 | **Configuración** | Umbrales de confianza/estabilidad, sensibilidad al movimiento y apariencia (modo claro / modo oscuro). |
@@ -51,18 +51,25 @@ abre Abecedario sin cámara aunque no hayas pasado `--demo`.
 
 **Mini juego** no enseña un vocabulario ni trae palabras precargadas. Toma las
 plantillas estáticas de `categoria: "letra"` que ya están en
-`datos/plantillas/` y pide señar una, al azar, en **5 segundos**. El tiempo
-se ve en un aro que se vacía y en la cuenta numérica.
+`datos/plantillas/`. Al abrir el modo se ve el récord y el botón **Inicio**:
+la letra y los **5 segundos** arrancan solo al pulsarlo. El tiempo se ve en
+un aro que se vacía, en la cuenta numérica y en un tic-tac suave.
 
 - Acierto: la predicción **estable** (el mismo filtro de Abecedario, no la
   estimación instantánea) es esa letra antes de los 5 s. Los puntos dependen
   de la rapidez: **1000** si tarda menos de 1 s, **700** de 1 s a menos de 3 s,
-  **500** de 3 s a menos de 5 s. Luego elige otra letra —sin repetir la
-  anterior si hay más de una— y reinicia el reloj.
-- Fallo: se cumplen los 5 segundos, o la seña estable es otra letra. La partida
-  termina. **Reintentar** o **Menú**.
+  **500** de 3 s a menos de 5 s. Suena el acierto y el reloj se detiene.
+  **Siguiente** elige otra letra —sin repetir la anterior si hay más de una—
+  y vuelve a contar 5 s, sin borrar los puntos.
+- Fallo: se cumplen los 5 segundos, o la seña estable es otra letra. Suena el
+  error y la partida termina. **Inicio** empieza otra desde cero; **Menú**
+  sale. Esc y Q también vuelven al menú, sin arrancar una ronda.
 - Récord: en `datos/config.json`, la clave `record_practica` solo se
-  actualiza si la puntuación es mayor que la guardada.
+  actualiza si la puntuación es mayor que la guardada. Ese momento suena una
+  sola vez, no en cada acierto.
+- Sonidos: `assets/sonidos/*.wav`, sintetizados con numpy en `innova/audio.py`.
+  Se reproducen fuera del hilo de la cámara. Si falta el archivo o no hay
+  salida de audio, el juego sigue en silencio.
 
 Si no hay letras estáticas, la pantalla lo explica en español y remite a
 **Capturar plantillas** (Letra · Estática). Las plantillas dinámicas y las

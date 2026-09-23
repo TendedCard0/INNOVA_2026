@@ -41,6 +41,7 @@ from innova.practica import (
     letras_estaticas_disponibles,
     puntos_por_rapidez,
     record_tras_partida,
+    sonidos_para,
 )
 from innova.reconocimiento import ReconocedorEstatico, ResultadoReconocimiento
 
@@ -100,22 +101,26 @@ class TestPuntuacionYReloj(unittest.TestCase):
         partida = PartidaPractica(["A", "B", "C"], record=4, duracion_s=5.0, rng=rng)
         t = 0.0
         for _ in range(12):
+            partida.iniciar(t)
             objetivo = partida.letra
             t += 0.4
             vista = partida.observar(t, objetivo.lower(), comprometida=True)
             self.assertTrue(vista.acierto)
             self.assertEqual(vista.puntos_obtenidos, PUNTOS_RAPIDO)
             self.assertFalse(vista.terminado)
+            self.assertFalse(vista.en_curso)
             self.assertNotEqual(vista.letra, objetivo)
             self.assertAlmostEqual(vista.restante_s, 5.0, places=5)
             t += 0.1
             suelta = partida.observar(t, "—", comprometida=False)
             self.assertFalse(suelta.acierto)
             self.assertFalse(suelta.terminado)
+            self.assertFalse(suelta.en_curso)
         self.assertEqual(partida.puntuacion, 12 * PUNTOS_RAPIDO)
 
     def test_sostener_el_acierto_no_suma_otra_vez_ni_falla(self) -> None:
         partida = PartidaPractica(["A"], duracion_s=5.0, rng=random.Random(1))
+        partida.iniciar(0.0)
         vista = partida.observar(0.2, "A", comprometida=True)
         self.assertTrue(vista.acierto)
         self.assertEqual(vista.puntos_obtenidos, PUNTOS_RAPIDO)
@@ -124,7 +129,11 @@ class TestPuntuacionYReloj(unittest.TestCase):
         self.assertFalse(sigue.acierto)
         self.assertFalse(sigue.terminado)
         self.assertEqual(sigue.puntuacion, PUNTOS_RAPIDO)
-        partida.observar(0.6, None, comprometida=False)
+        partida.iniciar(0.6)
+        bloqueada = partida.observar(0.7, "A", comprometida=True)
+        self.assertFalse(bloqueada.acierto)
+        self.assertEqual(bloqueada.puntuacion, PUNTOS_RAPIDO)
+        partida.observar(0.8, None, comprometida=False)
         otra = partida.observar(0.9, "A", comprometida=True)
         self.assertTrue(otra.acierto)
         self.assertEqual(otra.puntos_obtenidos, PUNTOS_RAPIDO)
@@ -132,6 +141,7 @@ class TestPuntuacionYReloj(unittest.TestCase):
 
     def test_parpadeo_sin_compromiso_no_cuenta(self) -> None:
         partida = PartidaPractica(["A", "B"], rng=random.Random(2))
+        partida.iniciar(0.0)
         objetivo = partida.letra
         vista = partida.observar(1.0, objetivo, comprometida=False)
         self.assertFalse(vista.acierto)
@@ -143,6 +153,7 @@ class TestPuntuacionYReloj(unittest.TestCase):
 
     def test_letra_equivocada_estable_termina_la_partida(self) -> None:
         partida = PartidaPractica(["A", "B"], record=5, rng=random.Random(3))
+        partida.iniciar(0.0)
         otra = next(letra for letra in partida.letras if letra != partida.letra)
         vista = partida.observar(1.5, otra, comprometida=True)
         self.assertTrue(vista.terminado)
@@ -156,7 +167,7 @@ class TestPuntuacionYReloj(unittest.TestCase):
 
     def test_se_acaba_el_tiempo_sin_acierto(self) -> None:
         partida = PartidaPractica(["A", "B"], record=2, duracion_s=5.0, rng=random.Random(4))
-        partida.observar(0.0, None, comprometida=False)
+        partida.iniciar(0.0)
         justo = partida.observar(5.0, None, comprometida=False)
         self.assertTrue(justo.terminado)
         self.assertEqual(justo.motivo, MOTIVO_TIEMPO)
@@ -167,7 +178,7 @@ class TestPuntuacionYReloj(unittest.TestCase):
 
     def test_acierto_en_el_limite_y_tarde_no(self) -> None:
         dentro = PartidaPractica(["Z"], duracion_s=5.0)
-        dentro.observar(0.0, None, comprometida=False)
+        dentro.iniciar(0.0)
         vista = dentro.observar(4.9, "Z", comprometida=True)
         self.assertTrue(vista.acierto)
         self.assertEqual(vista.puntos_obtenidos, PUNTOS_LENTO)
@@ -175,7 +186,7 @@ class TestPuntuacionYReloj(unittest.TestCase):
         self.assertFalse(vista.terminado)
 
         justo = PartidaPractica(["Z"], duracion_s=5.0)
-        justo.observar(0.0, None, comprometida=False)
+        justo.iniciar(0.0)
         en_cinco = justo.observar(5.0, "Z", comprometida=True)
         self.assertFalse(en_cinco.acierto)
         self.assertTrue(en_cinco.terminado)
@@ -183,21 +194,32 @@ class TestPuntuacionYReloj(unittest.TestCase):
         self.assertEqual(en_cinco.puntuacion, 0)
 
         tarde = PartidaPractica(["Z"], duracion_s=5.0)
-        tarde.observar(0.0, None, comprometida=False)
+        tarde.iniciar(0.0)
         vencida = tarde.observar(5.01, "Z", comprometida=True)
         self.assertFalse(vencida.acierto)
         self.assertTrue(vencida.terminado)
         self.assertEqual(vencida.motivo, MOTIVO_TIEMPO)
         self.assertEqual(vencida.puntuacion, 0)
 
-    def test_tras_acierto_el_reloj_vuelve_a_empezar(self) -> None:
+    def test_tras_acierto_el_reloj_espera_otro_inicio(self) -> None:
         partida = PartidaPractica(["A", "B"], duracion_s=5.0, rng=random.Random(5))
+        partida.iniciar(0.0)
         objetivo = partida.letra
-        partida.observar(1.0, objetivo, comprometida=True)
-        sigue = partida.observar(5.9, None, comprometida=False)
+        acierto = partida.observar(0.4, objetivo, comprometida=True)
+        self.assertTrue(acierto.acierto)
+        self.assertEqual(acierto.puntos_obtenidos, PUNTOS_RAPIDO)
+        self.assertFalse(acierto.en_curso)
+        espera = partida.observar(20.0, None, comprometida=False)
+        self.assertFalse(espera.terminado)
+        self.assertFalse(espera.en_curso)
+        self.assertEqual(espera.puntuacion, PUNTOS_RAPIDO)
+        self.assertAlmostEqual(espera.restante_s, 5.0, places=5)
+        partida.iniciar(20.0)
+        self.assertTrue(partida.en_curso)
+        sigue = partida.observar(24.9, None, comprometida=False)
         self.assertFalse(sigue.terminado)
         self.assertEqual(sigue.puntuacion, PUNTOS_RAPIDO)
-        fin = partida.observar(6.0, None, comprometida=False)
+        fin = partida.observar(25.0, None, comprometida=False)
         self.assertTrue(fin.terminado)
         self.assertEqual(fin.motivo, MOTIVO_TIEMPO)
         self.assertEqual(fin.puntuacion, PUNTOS_RAPIDO)
@@ -222,6 +244,7 @@ class TestPuntuacionYReloj(unittest.TestCase):
     def test_reconocedor_falso_acierto_y_tiempo(self) -> None:
         falso = _ReconocedorFalso()
         partida = PartidaPractica(["A", "M"], duracion_s=5.0, rng=random.Random(7))
+        partida.iniciar(0.0)
         falso.etiqueta = "detectando…"
         arranque = partida.observar_resultado(0.0, falso.predecir(None, []))
         self.assertFalse(arranque.acierto)
@@ -232,6 +255,8 @@ class TestPuntuacionYReloj(unittest.TestCase):
         self.assertTrue(acierto.acierto)
         self.assertEqual(acierto.puntos_obtenidos, PUNTOS_MEDIO)
         self.assertEqual(acierto.puntuacion, PUNTOS_MEDIO)
+        self.assertFalse(acierto.en_curso)
+        partida.iniciar(1.1)
 
         # La estimación cruda no se consulta: si la estable no coincide, no hay punto.
         cruda = ResultadoReconocimiento(
@@ -257,7 +282,7 @@ class TestPuntuacionYReloj(unittest.TestCase):
         self.assertFalse(ignorada.terminado)
 
         falso.etiqueta = "—"
-        fin = partida.observar_resultado(1.0 + 5.0, falso.predecir(None, []))
+        fin = partida.observar_resultado(1.1 + 5.0, falso.predecir(None, []))
         self.assertTrue(fin.terminado)
         self.assertEqual(fin.motivo, MOTIVO_TIEMPO)
         self.assertEqual(fin.puntuacion, PUNTOS_MEDIO)
@@ -274,7 +299,7 @@ class TestPuntuacionYReloj(unittest.TestCase):
 
         def jugar(dt: float):
             partida = PartidaPractica(["A"], duracion_s=5.0)
-            partida.observar(0.0, None, comprometida=False)
+            partida.iniciar(0.0)
             return partida.observar(dt, "A", comprometida=True)
 
         self.assertEqual(jugar(0.4).puntos_obtenidos, 1000)
@@ -301,11 +326,90 @@ class TestPuntuacionYReloj(unittest.TestCase):
         partida = PartidaPractica(["A"], record=record, duracion_s=5.0)
         t = 0.0
         for _ in range(puntos):
-            t += 0.2
-            partida.observar(t, "A", comprometida=True)
+            partida.iniciar(t)
             t += 0.05
             partida.observar(t, None, comprometida=False)
+            t += 0.2
+            partida.observar(t, "A", comprometida=True)
+        partida.iniciar(t)
         return partida.observar(t + 5.0, None, comprometida=False)
+
+
+    def test_no_arranca_hasta_iniciar(self) -> None:
+        partida = PartidaPractica(["A", "B"], duracion_s=5.0, rng=random.Random(1))
+        self.assertFalse(partida.en_curso)
+        idle = partida.observar(10.0, partida.letra, comprometida=True)
+        self.assertFalse(idle.acierto)
+        self.assertFalse(idle.terminado)
+        self.assertFalse(idle.en_curso)
+        self.assertEqual(idle.puntuacion, 0)
+        self.assertAlmostEqual(idle.restante_s, 5.0, places=5)
+        arranque = partida.iniciar(10.0)
+        self.assertTrue(arranque.en_curso)
+        self.assertFalse(arranque.acierto)
+        self.assertAlmostEqual(arranque.restante_s, 5.0, places=5)
+        jugando = partida.observar(10.4, None, comprometida=False)
+        self.assertTrue(jugando.en_curso)
+        self.assertAlmostEqual(jugando.restante_s, 4.6, places=5)
+
+    def test_sonidos_de_acierto_error_y_record(self) -> None:
+        from innova.practica import VistaPractica
+
+        acierto = VistaPractica(
+            letra="B",
+            puntuacion=1000,
+            record=0,
+            restante_s=5.0,
+            acierto=True,
+            terminado=False,
+            motivo=None,
+            nuevo_record=False,
+            puntos_obtenidos=1000,
+        )
+        self.assertEqual(
+            sonidos_para(acierto, puntuacion_antes=0, record_guardado=0, record_anunciado=False),
+            ("acierto", "record"),
+        )
+        self.assertEqual(
+            sonidos_para(acierto, puntuacion_antes=0, record_guardado=0, record_anunciado=True),
+            ("acierto",),
+        )
+        self.assertEqual(
+            sonidos_para(acierto, puntuacion_antes=1000, record_guardado=1500, record_anunciado=False),
+            ("acierto",),
+        )
+        fallo = VistaPractica(
+            letra="A",
+            puntuacion=0,
+            record=4,
+            restante_s=0.0,
+            acierto=False,
+            terminado=True,
+            motivo="tiempo",
+            nuevo_record=False,
+        )
+        self.assertEqual(
+            sonidos_para(fallo, puntuacion_antes=0, record_guardado=4, record_anunciado=False),
+            ("error",),
+        )
+        marca = VistaPractica(
+            letra="A",
+            puntuacion=1000,
+            record=1000,
+            restante_s=0.0,
+            acierto=False,
+            terminado=True,
+            motivo="falla",
+            nuevo_record=True,
+        )
+        self.assertEqual(
+            sonidos_para(marca, puntuacion_antes=1000, record_guardado=500, record_anunciado=False),
+            ("error", "record"),
+        )
+        self.assertEqual(
+            sonidos_para(marca, puntuacion_antes=1000, record_guardado=500, record_anunciado=True),
+            ("error",),
+        )
 
 
 class TestRecordPersistente(unittest.TestCase):
@@ -396,10 +500,23 @@ class TestPantallaPractica(unittest.TestCase):
             self.skipTest("requiere tkinter")
 
         from innova import ajustes, plantillas, tema
+        from innova.audio import AudioMiniJuego, ReproductorSonidos
         from innova.pantallas import PantallaPractica
+
+        class _Lanzador:
+            def __init__(self) -> None:
+                self.rutas: list[str] = []
+
+            def __call__(self, ruta: Path) -> None:
+                self.rutas.append(ruta.name)
 
         tema.aplicar_tema("claro")
         with tempfile.TemporaryDirectory() as tmp:
+            lanzador = _Lanzador()
+            audio = AudioMiniJuego(
+                ReproductorSonidos(Path(tmp) / "sonidos", lanzar=lanzador, probar=False),
+                hilo=False,
+            )
             base = Path(tmp)
             vacio = base / "vacio"
             banco = base / "banco"
@@ -422,6 +539,7 @@ class TestPantallaPractica(unittest.TestCase):
                     indice_camara=0,
                     ajustes=Ajustes(),
                     on_volver=lambda: None,
+                    audio=audio,
                 )
                 raiz.update()
                 self.assertIn("Capturar plantillas", pantalla.marco_vacio.winfo_children()[1].cget("text"))
@@ -435,13 +553,23 @@ class TestPantallaPractica(unittest.TestCase):
                     indice_camara=0,
                     ajustes=Ajustes(),
                     on_volver=lambda: None,
+                    audio=audio,
                 )
                 raiz.update()
-                self.assertIn(pantalla.lbl_letra.cget("text"), {"A", "L"})
+                self.assertEqual(pantalla.lbl_letra.cget("text"), "—")
+                self.assertEqual(pantalla.btn_inicio.cget("text"), "Inicio")
+                self.assertFalse(pantalla._partida.en_curso)
+                self.assertFalse(audio.reloj.activo)
                 self.assertEqual(pantalla.lbl_tiempo.cget("text"), "5.0 s")
                 self.assertEqual(pantalla.lbl_puntos.cget("text"), "Puntos: 0")
                 self.assertIn("Récord", pantalla.lbl_record.cget("text"))
+                pantalla.btn_inicio.invoke()
+                self.assertTrue(pantalla._partida.en_curso)
+                self.assertTrue(audio.reloj.activo)
+                self.assertIn(pantalla.lbl_letra.cget("text"), {"A", "L"})
+                self.assertEqual(pantalla.lbl_tiempo.cget("text"), "5.0 s")
                 pantalla.cerrar_pantalla()
+                self.assertFalse(audio.reloj.activo)
             finally:
                 ajustes.RUTA_AJUSTES = ajustes_previos
                 plantillas.RUTA_PLANTILLAS = plantillas_previas
