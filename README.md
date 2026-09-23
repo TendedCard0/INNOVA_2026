@@ -18,7 +18,7 @@ El menú usa acentos tríadicos (**naranja**, **lima** e **índigo**) sobre fond
 6. Aplica un **filtro de estabilidad** antes de comprometer una seña (las dinámicas se confirman al terminar el gesto, no en cada fotograma).
 7. Permite **organizar** el banco (captura Letra/Palabra × estática/dinámica; biblioteca con filtro letra | palabra | todas).
 8. En Vocabulario dibuja un esqueleto y puntos del rostro con los colores del tema (índigo, lima, naranja).
-9. **Mini juego** espera a que pulses **Inicio**: entonces muestra una letra estática que ya capturaste y arranca un cronómetro circular de **5 segundos**. La seña estable suma **1000** puntos si llega en menos de 1 s, **700** entre 1 y 3 s, y **500** de 3 s a menos de 5 s. Un acierto detiene el reloj hasta **Siguiente**. A los 5 s, o si la seña estable es otra letra, la partida termina. En `datos/config.json` se guarda únicamente el **récord** (la puntuación más alta).
+9. **Mini juego** espera a que pulses **Inicio**: entonces muestra una letra estática que ya capturaste y arranca un cronómetro circular de **5 segundos**. La seña estable suma **1000** puntos si llega en menos de 1 s, **700** entre 1 y 3 s, y **500** de 3 s a menos de 5 s. Un acierto pasa solo a la siguiente letra. A los 5 s, o si la seña estable es otra letra, la partida termina y vuelve a **Inicio**. En `datos/config.json` se guarda únicamente el **récord** (la puntuación más alta).
 
 Abecedario deja `pose` y `rostro` en `null` para ir más ligero. Si MediaPipe Pose o Face Mesh no cargan, Vocabulario sigue reconociendo con la mano.
 
@@ -111,8 +111,8 @@ Menú → **Mini juego**. No hay una lista de palabras ni plantillas de fábrica
 1. Al entrar se ve el **récord** y el botón **Inicio**. La letra no aparece y el cronómetro no corre.
 2. **Inicio** muestra la letra y arranca el **cronómetro circular** de **5 segundos**, con la cuenta numérica y un tic-tac suave.
 3. Seña esa letra con la mano, quieta, frente a la cámara. Un parpadeo no cuenta: tiene que estabilizarse el mismo filtro que usa Abecedario.
-4. Si aciertas a tiempo, sumas según la rapidez: **1000** (menos de 1 s), **700** (de 1 s a menos de 3 s) o **500** (de 3 s a menos de 5 s). Suena el acierto, el reloj se detiene y **Siguiente** arma otra letra (sin repetir la anterior, si hay más de una) sin borrar los puntos.
-5. A los **5 segundos** sin acierto, o si la seña estable es otra letra, suena el error y la partida termina. **Inicio** empieza de cero; **Menú** (o Esc / Q) vuelve al inicio. Si esa partida superó el récord guardado, suena una vez el récord nuevo.
+4. Si aciertas a tiempo, sumas según la rapidez: **1000** (menos de 1 s), **700** (de 1 s a menos de 3 s) o **500** (de 3 s a menos de 5 s). Suena el acierto, sale otra letra (sin repetir la anterior, si hay más de una) y el reloj vuelve a 5 segundos. Los puntos se acumulan.
+5. A los **5 segundos** sin acierto, o si la seña estable es otra letra, suena el error, el tic-tac se detiene y la partida vuelve al botón **Inicio**. **Menú** (o Esc / Q) sale en cualquier momento. Si esa partida superó el récord guardado, suena una vez el récord nuevo.
 6. Solo se conserva el **récord** personal (`record_practica` en `datos/config.json`). Una puntuación más baja no lo reemplaza.
 
 Los efectos están en `assets/sonidos/` (WAV sintetizados en el propio proyecto, sin audio de terceros). Si el equipo no tiene salida de audio, Mini juego sigue igual, en silencio.

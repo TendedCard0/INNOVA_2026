@@ -201,8 +201,9 @@ def sonidos_para(
 class PartidaPractica:
     """Una corrida: letra al azar, 5 s, puntos por rapidez, o fin de partida.
 
-    No arranca sola: ``iniciar`` pone en marcha el cronómetro. Un acierto
-    para el reloj hasta el siguiente ``iniciar`` (el botón Siguiente).
+    No arranca sola: ``iniciar`` pone en marcha la partida. Cada acierto
+    cambia de letra y reinicia los 5 s sin otra pulsación. Solo una derrota
+    devuelve la partida a la espera.
     Tras un acierto se ignora la misma letra comprometida hasta que la
     predicción estable cambie o se suelte. Así, seguir mostrando la seña
     que acaba de sumar no cuenta otra vez ni cierra la partida por «fallo».
@@ -303,9 +304,7 @@ class PartidaPractica:
         self.puntuacion += obtenidos
         self._bloqueada = anterior
         self.letra = elegir_letra(self.letras, anterior, self._rng)
-        # La siguiente letra espera a Inicio / Siguiente: el reloj no sigue solo.
-        self.en_curso = False
-        self._inicio = None
+        self._inicio = float(ahora)
         return self._vista(ahora, acierto=True, puntos_obtenidos=obtenidos)
 
     def _terminar(self, motivo: str, ahora: float) -> VistaPractica:

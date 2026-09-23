@@ -99,23 +99,23 @@ class TestPuntuacionYReloj(unittest.TestCase):
     def test_acierto_suma_y_cambia_letra_sin_repetir(self) -> None:
         rng = random.Random(0)
         partida = PartidaPractica(["A", "B", "C"], record=4, duracion_s=5.0, rng=rng)
+        partida.iniciar(0.0)
         t = 0.0
         for _ in range(12):
-            partida.iniciar(t)
             objetivo = partida.letra
             t += 0.4
             vista = partida.observar(t, objetivo.lower(), comprometida=True)
             self.assertTrue(vista.acierto)
             self.assertEqual(vista.puntos_obtenidos, PUNTOS_RAPIDO)
             self.assertFalse(vista.terminado)
-            self.assertFalse(vista.en_curso)
+            self.assertTrue(vista.en_curso)
             self.assertNotEqual(vista.letra, objetivo)
             self.assertAlmostEqual(vista.restante_s, 5.0, places=5)
             t += 0.1
             suelta = partida.observar(t, "—", comprometida=False)
             self.assertFalse(suelta.acierto)
             self.assertFalse(suelta.terminado)
-            self.assertFalse(suelta.en_curso)
+            self.assertTrue(suelta.en_curso)
         self.assertEqual(partida.puntuacion, 12 * PUNTOS_RAPIDO)
 
     def test_sostener_el_acierto_no_suma_otra_vez_ni_falla(self) -> None:
@@ -125,15 +125,13 @@ class TestPuntuacionYReloj(unittest.TestCase):
         self.assertTrue(vista.acierto)
         self.assertEqual(vista.puntos_obtenidos, PUNTOS_RAPIDO)
         self.assertEqual(vista.puntuacion, PUNTOS_RAPIDO)
+        self.assertTrue(vista.en_curso)
         sigue = partida.observar(0.5, "A", comprometida=True)
         self.assertFalse(sigue.acierto)
         self.assertFalse(sigue.terminado)
+        self.assertTrue(sigue.en_curso)
         self.assertEqual(sigue.puntuacion, PUNTOS_RAPIDO)
-        partida.iniciar(0.6)
-        bloqueada = partida.observar(0.7, "A", comprometida=True)
-        self.assertFalse(bloqueada.acierto)
-        self.assertEqual(bloqueada.puntuacion, PUNTOS_RAPIDO)
-        partida.observar(0.8, None, comprometida=False)
+        partida.observar(0.6, None, comprometida=False)
         otra = partida.observar(0.9, "A", comprometida=True)
         self.assertTrue(otra.acierto)
         self.assertEqual(otra.puntos_obtenidos, PUNTOS_RAPIDO)
@@ -201,26 +199,23 @@ class TestPuntuacionYReloj(unittest.TestCase):
         self.assertEqual(vencida.motivo, MOTIVO_TIEMPO)
         self.assertEqual(vencida.puntuacion, 0)
 
-    def test_tras_acierto_el_reloj_espera_otro_inicio(self) -> None:
+    def test_tras_acierto_la_siguiente_letra_arranca_sola(self) -> None:
         partida = PartidaPractica(["A", "B"], duracion_s=5.0, rng=random.Random(5))
         partida.iniciar(0.0)
         objetivo = partida.letra
         acierto = partida.observar(0.4, objetivo, comprometida=True)
         self.assertTrue(acierto.acierto)
         self.assertEqual(acierto.puntos_obtenidos, PUNTOS_RAPIDO)
-        self.assertFalse(acierto.en_curso)
-        espera = partida.observar(20.0, None, comprometida=False)
-        self.assertFalse(espera.terminado)
-        self.assertFalse(espera.en_curso)
-        self.assertEqual(espera.puntuacion, PUNTOS_RAPIDO)
-        self.assertAlmostEqual(espera.restante_s, 5.0, places=5)
-        partida.iniciar(20.0)
-        self.assertTrue(partida.en_curso)
-        sigue = partida.observar(24.9, None, comprometida=False)
+        self.assertTrue(acierto.en_curso)
+        self.assertNotEqual(acierto.letra, objetivo)
+        self.assertAlmostEqual(acierto.restante_s, 5.0, places=5)
+        sigue = partida.observar(5.3, None, comprometida=False)
         self.assertFalse(sigue.terminado)
+        self.assertTrue(sigue.en_curso)
         self.assertEqual(sigue.puntuacion, PUNTOS_RAPIDO)
-        fin = partida.observar(25.0, None, comprometida=False)
+        fin = partida.observar(5.4, None, comprometida=False)
         self.assertTrue(fin.terminado)
+        self.assertFalse(fin.en_curso)
         self.assertEqual(fin.motivo, MOTIVO_TIEMPO)
         self.assertEqual(fin.puntuacion, PUNTOS_RAPIDO)
 
@@ -255,8 +250,7 @@ class TestPuntuacionYReloj(unittest.TestCase):
         self.assertTrue(acierto.acierto)
         self.assertEqual(acierto.puntos_obtenidos, PUNTOS_MEDIO)
         self.assertEqual(acierto.puntuacion, PUNTOS_MEDIO)
-        self.assertFalse(acierto.en_curso)
-        partida.iniciar(1.1)
+        self.assertTrue(acierto.en_curso)
 
         # La estimación cruda no se consulta: si la estable no coincide, no hay punto.
         cruda = ResultadoReconocimiento(
@@ -282,7 +276,7 @@ class TestPuntuacionYReloj(unittest.TestCase):
         self.assertFalse(ignorada.terminado)
 
         falso.etiqueta = "—"
-        fin = partida.observar_resultado(1.1 + 5.0, falso.predecir(None, []))
+        fin = partida.observar_resultado(1.0 + 5.0, falso.predecir(None, []))
         self.assertTrue(fin.terminado)
         self.assertEqual(fin.motivo, MOTIVO_TIEMPO)
         self.assertEqual(fin.puntuacion, PUNTOS_MEDIO)
@@ -324,14 +318,13 @@ class TestPuntuacionYReloj(unittest.TestCase):
 
     def _partida_con_puntos(self, puntos: int, *, record: int):
         partida = PartidaPractica(["A"], record=record, duracion_s=5.0)
+        partida.iniciar(0.0)
         t = 0.0
         for _ in range(puntos):
-            partida.iniciar(t)
             t += 0.05
             partida.observar(t, None, comprometida=False)
             t += 0.2
             partida.observar(t, "A", comprometida=True)
-        partida.iniciar(t)
         return partida.observar(t + 5.0, None, comprometida=False)
 
 
@@ -566,6 +559,8 @@ class TestPantallaPractica(unittest.TestCase):
                 pantalla.btn_inicio.invoke()
                 self.assertTrue(pantalla._partida.en_curso)
                 self.assertTrue(audio.reloj.activo)
+                self.assertEqual(pantalla.btn_inicio.cget("text"), "Inicio")
+                self.assertFalse(pantalla.btn_inicio.winfo_ismapped())
                 self.assertIn(pantalla.lbl_letra.cget("text"), {"A", "L"})
                 self.assertEqual(pantalla.lbl_tiempo.cget("text"), "5.0 s")
                 pantalla.cerrar_pantalla()

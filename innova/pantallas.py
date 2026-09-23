@@ -981,8 +981,9 @@ class PantallaPractica(_PantallaConCamara):
         # que la persona soltó la seña y el bloqueo se levanta. Si la misma
         # seña sigue estable, volvería a sumar o cerraría la ronda al instante.
         self._pintar(vista)
-        if vista.acierto or vista.terminado:
+        if vista.terminado:
             self._audio.detener_reloj()
+        if vista.acierto or vista.terminado:
             for nombre in sonidos_para(
                 vista,
                 puntuacion_antes=antes,
@@ -1040,23 +1041,19 @@ class PantallaPractica(_PantallaConCamara):
             if self.btn_inicio.winfo_ismapped():
                 self.btn_inicio.pack_forget()
             return
-        texto = "Inicio" if vista.terminado or vista.puntuacion <= 0 else "Siguiente"
-        self.btn_inicio.configure(text=texto)
+        self.btn_inicio.configure(text="Inicio")
         if not self.btn_inicio.winfo_ismapped():
             self.btn_inicio.pack(fill="x", padx=20, pady=(0, 8))
 
     def _pulsar_inicio(self) -> None:
         if self._partida is None:
             return
-        partida_nueva = self._partida.terminada or self._partida.puntuacion <= 0
         if self._partida.terminada:
             self._preparar_partida_nueva()
             if self._partida is None:
                 return
-        # Solo en una partida nueva. Tras un acierto, reiniciar el filtro
-        # parece que soltaron la seña, levanta el bloqueo y la misma pose
-        # vuelve a sumar al instante al pulsar Siguiente.
-        if partida_nueva and self._pipeline is not None:
+        # Partida nueva: el filtro no debe traer la seña que quedó en la espera.
+        if self._pipeline is not None:
             self._pipeline.reiniciar_estabilidad()
         vista = self._partida.iniciar(time.monotonic())
         self._audio.iniciar_reloj()

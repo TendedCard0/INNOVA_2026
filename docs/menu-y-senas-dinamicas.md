@@ -58,12 +58,12 @@ un aro que se vacía, en la cuenta numérica y en un tic-tac suave.
 - Acierto: la predicción **estable** (el mismo filtro de Abecedario, no la
   estimación instantánea) es esa letra antes de los 5 s. Los puntos dependen
   de la rapidez: **1000** si tarda menos de 1 s, **700** de 1 s a menos de 3 s,
-  **500** de 3 s a menos de 5 s. Suena el acierto y el reloj se detiene.
-  **Siguiente** elige otra letra —sin repetir la anterior si hay más de una—
-  y vuelve a contar 5 s, sin borrar los puntos.
+  **500** de 3 s a menos de 5 s. Suena el acierto y, sin otro botón, elige otra
+  letra —sin repetir la anterior si hay más de una— y vuelve a contar 5 s.
+  Los puntos se acumulan.
 - Fallo: se cumplen los 5 segundos, o la seña estable es otra letra. Suena el
-  error y la partida termina. **Inicio** empieza otra desde cero; **Menú**
-  sale. Esc y Q también vuelven al menú, sin arrancar una ronda.
+  error, se detiene el tic-tac y la partida vuelve al botón **Inicio**.
+  **Menú**, Esc y Q salen en cualquier momento, sin arrancar una ronda.
 - Récord: en `datos/config.json`, la clave `record_practica` solo se
   actualiza si la puntuación es mayor que la guardada. Ese momento suena una
   sola vez, no en cada acierto.
