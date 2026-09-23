@@ -204,19 +204,35 @@ class TestDialogosYArranque(unittest.TestCase):
 
         anterior_gancho = sys.excepthook
         anterior = os.environ.get("MAMATLATOLLI_DATOS")
+        avisos: list[str] = []
         with tempfile.TemporaryDirectory() as tmp:
             os.environ["MAMATLATOLLI_DATOS"] = tmp
             try:
-                registrar_fallos_empaquetado(empaquetada=True)
+                registrar_fallos_empaquetado(
+                    empaquetada=True,
+                    avisar=lambda mensaje, _titulo: avisos.append(mensaje),
+                )
                 sys.excepthook(RuntimeError, RuntimeError("falla de prueba"), None)
                 texto = (Path(tmp) / "mamatlatolli.log").read_text(encoding="utf-8")
                 self.assertIn("falla de prueba", texto)
+                self.assertEqual(len(avisos), 1)
+                self.assertIn("falla de prueba", avisos[0])
             finally:
                 sys.excepthook = anterior_gancho
                 if anterior is None:
                     os.environ.pop("MAMATLATOLLI_DATOS", None)
                 else:
                     os.environ["MAMATLATOLLI_DATOS"] = anterior
+
+    def test_el_cuadro_no_se_abre_en_ci(self) -> None:
+        from innova.cli import avisar_con_cuadro, debe_mostrar_cuadro
+
+        self.assertFalse(debe_mostrar_cuadro(plataforma="win32", entorno={"GITHUB_ACTIONS": "true"}))
+        self.assertFalse(debe_mostrar_cuadro(plataforma="win32", entorno={"CI": "true"}))
+        self.assertTrue(debe_mostrar_cuadro(plataforma="win32", entorno={}))
+        self.assertFalse(debe_mostrar_cuadro(plataforma="linux", entorno={}))
+        with mock.patch.dict(os.environ, {"CI": "true", "GITHUB_ACTIONS": "true"}):
+            avisar_con_cuadro("no debe bloquear")
 
     def test_main_prepara_datos_antes_de_la_ventana(self) -> None:
         from innova.cli import main
