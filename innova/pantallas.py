@@ -1048,11 +1048,15 @@ class PantallaPractica(_PantallaConCamara):
     def _pulsar_inicio(self) -> None:
         if self._partida is None:
             return
+        partida_nueva = self._partida.terminada or self._partida.puntuacion <= 0
         if self._partida.terminada:
             self._preparar_partida_nueva()
             if self._partida is None:
                 return
-        if self._pipeline is not None:
+        # Solo en una partida nueva. Tras un acierto, reiniciar el filtro
+        # parece que soltaron la seña, levanta el bloqueo y la misma pose
+        # vuelve a sumar al instante al pulsar Siguiente.
+        if partida_nueva and self._pipeline is not None:
             self._pipeline.reiniciar_estabilidad()
         vista = self._partida.iniciar(time.monotonic())
         self._audio.iniciar_reloj()
