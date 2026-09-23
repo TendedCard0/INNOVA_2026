@@ -1,9 +1,10 @@
 """Sonidos de Mamatlatolli. Clips cortos sintetizados, sin red ni licencias de terceros.
 
 Los WAV de ``assets/sonidos/`` se generan con numpy (tonos y envolvente).
-La reproducción usa ffplay, paplay o aplay en otro proceso, así el hilo de
-la cámara no espera. Si no hay reproductor, falta el archivo o el equipo no
-tiene salida de audio, las llamadas no hacen nada.
+En Windows se reproducen con ``winsound`` (no hace falta FFmpeg). En Linux y
+macOS se usa ffplay, paplay o aplay en otro proceso, así el hilo de la cámara
+no espera. Si no hay backend, falta el archivo o la salida falla, las
+llamadas no hacen nada.
 """
 
 from __future__ import annotations
@@ -103,8 +104,34 @@ def comando_disponible() -> list[str] | None:
     return None
 
 
+def winsound_disponible() -> bool:
+    """True en Windows si el módulo estándar ``winsound`` se puede importar."""
+    if sys.platform != "win32":
+        return False
+    try:
+        import winsound
+    except ImportError:
+        return False
+    return callable(getattr(winsound, "PlaySound", None))
+
+
+def backend_utilizable(*, probar: bool) -> str | None:
+    """``comando``, ``winsound`` o None.
+
+    En Windows, la ausencia de ffplay/paplay/aplay no apaga el audio: queda
+    ``winsound``. La prueba con un programa externo solo corre si ese programa
+    existe.
+    """
+    comando = comando_disponible()
+    if comando is not None and (not probar or _comando_abre_audio(comando)):
+        return "comando"
+    if winsound_disponible():
+        return "winsound"
+    return None
+
+
 def salida_de_audio_disponible() -> bool:
-    """True si un clip corto llega a abrirse. El resultado se recuerda."""
+    """True si hay un backend que puede abrir un clip. El resultado se recuerda."""
     global _SALIDA_OK
     if _SALIDA_OK is None:
         _SALIDA_OK = _probar_salida()
@@ -112,9 +139,10 @@ def salida_de_audio_disponible() -> bool:
 
 
 def _probar_salida() -> bool:
-    comando = comando_disponible()
-    if comando is None:
-        return sys.platform == "win32"
+    return backend_utilizable(probar=True) is not None
+
+
+def _comando_abre_audio(comando: list[str]) -> bool:
     carpeta = asegurar_sonidos()
     ruta = carpeta / "tic.wav"
     if not ruta.is_file():
@@ -147,11 +175,13 @@ class ReproductorSonidos:
     ) -> None:
         self.carpeta = carpeta if carpeta is not None else RUTA_SONIDOS
         self._lanzar = lanzar
+        self._backend: str | None = None
         self._mudo = False
         if lanzar is None:
             if probar is None:
                 probar = True
-            self._mudo = comando_disponible() is None or (probar and not salida_de_audio_disponible())
+            self._backend = backend_utilizable(probar=probar)
+            self._mudo = self._backend is None
             if not self._mudo:
                 asegurar_sonidos(self.carpeta)
         elif probar:
@@ -173,7 +203,7 @@ class ReproductorSonidos:
             except OSError:
                 self._mudo = True
             return
-        if sys.platform == "win32" and comando_disponible() is None:
+        if self._backend == "winsound":
             self._winsound(ruta)
             return
         comando = comando_disponible()
@@ -194,8 +224,14 @@ class ReproductorSonidos:
         try:
             import winsound
 
-            winsound.PlaySound(str(ruta), winsound.SND_FILENAME | winsound.SND_ASYNC)
-        except (OSError, RuntimeError):
+            resultado = winsound.PlaySound(
+                str(ruta),
+                winsound.SND_FILENAME | winsound.SND_ASYNC,
+            )
+        except (ImportError, OSError, RuntimeError):
+            self._mudo = True
+            return
+        if resultado is False:
             self._mudo = True
 
     def iniciar_reloj(self) -> None:

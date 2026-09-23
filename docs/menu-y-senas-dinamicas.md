@@ -68,8 +68,9 @@ un aro que se vacía, en la cuenta numérica y en un tic-tac suave.
   actualiza si la puntuación es mayor que la guardada. Ese momento suena una
   sola vez, no en cada acierto.
 - Sonidos: `assets/sonidos/*.wav`, sintetizados con numpy en `innova/audio.py`.
-  Se reproducen fuera del hilo de la cámara. Si falta el archivo o no hay
-  salida de audio, el juego sigue en silencio.
+  Windows los reproduce con `winsound` (sin FFmpeg). Linux y macOS usan
+  `ffplay`, `paplay` o `aplay`, fuera del hilo de la cámara. Si falta el
+  archivo o no hay salida de audio, el juego sigue en silencio.
 
 Si no hay letras estáticas, la pantalla lo explica en español y remite a
 **Capturar plantillas** (Letra · Estática). Las plantillas dinámicas y las

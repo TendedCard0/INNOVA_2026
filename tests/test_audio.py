@@ -2,16 +2,21 @@
 
 from __future__ import annotations
 
+import sys
 import tempfile
+import types
 import unittest
 import wave
 from pathlib import Path
+from unittest.mock import patch
 
+from innova import audio
 from innova.audio import (
     AudioMiniJuego,
     RelojMiniJuego,
     ReproductorSonidos,
     asegurar_sonidos,
+    backend_utilizable,
 )
 
 
@@ -56,6 +61,79 @@ class TestReproductor(unittest.TestCase):
             reproductor.reproducir("error")
             self.assertTrue(reproductor.mudo)
             reproductor.reproducir("error")
+
+
+def _winsound_falso(play) -> types.ModuleType:
+    modulo = types.ModuleType("winsound")
+    modulo.SND_FILENAME = 0x00020000
+    modulo.SND_ASYNC = 0x0001
+    modulo.PlaySound = play
+    return modulo
+
+
+class TestWinsoundEnWindows(unittest.TestCase):
+    def test_sin_cli_no_queda_mudo_y_llama_a_winsound(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            carpeta = asegurar_sonidos(Path(tmp))
+            llamadas: list[tuple[str, int]] = []
+
+            def play(ruta: str, flags: int) -> None:
+                llamadas.append((ruta, flags))
+
+            falso = _winsound_falso(play)
+            with (
+                patch("innova.audio.sys.platform", "win32"),
+                patch("innova.audio.comando_disponible", return_value=None),
+                patch.dict(sys.modules, {"winsound": falso}),
+            ):
+                self.assertEqual(backend_utilizable(probar=True), "winsound")
+                reproductor = ReproductorSonidos(carpeta, probar=False)
+                self.assertFalse(reproductor.mudo)
+                reproductor.reproducir("acierto")
+                reproductor.reproducir("tic")
+            self.assertEqual(len(llamadas), 2)
+            ruta, flags = llamadas[0]
+            self.assertTrue(ruta.endswith("acierto.wav"))
+            self.assertEqual(flags, falso.SND_FILENAME | falso.SND_ASYNC)
+            self.assertTrue(llamadas[1][0].endswith("tic.wav"))
+
+    def test_si_winsound_falla_queda_mudo(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            carpeta = asegurar_sonidos(Path(tmp))
+            intentos = {"n": 0}
+
+            def play(_ruta: str, _flags: int) -> None:
+                intentos["n"] += 1
+                raise RuntimeError("sin dispositivo")
+
+            falso = _winsound_falso(play)
+            with (
+                patch("innova.audio.sys.platform", "win32"),
+                patch("innova.audio.comando_disponible", return_value=None),
+                patch.dict(sys.modules, {"winsound": falso}),
+            ):
+                reproductor = ReproductorSonidos(carpeta, probar=False)
+                self.assertFalse(reproductor.mudo)
+                reproductor.reproducir("error")
+                self.assertTrue(reproductor.mudo)
+                reproductor.reproducir("error")
+            self.assertEqual(intentos["n"], 1)
+
+    def test_probar_salida_en_windows_no_exige_un_programa(self) -> None:
+        previo = audio._SALIDA_OK
+        falso = _winsound_falso(lambda _ruta, _flags: None)
+        try:
+            audio._SALIDA_OK = None
+            with (
+                patch("innova.audio.sys.platform", "win32"),
+                patch("innova.audio.comando_disponible", return_value=None),
+                patch("innova.audio.subprocess.run") as correr,
+                patch.dict(sys.modules, {"winsound": falso}),
+            ):
+                self.assertTrue(audio._probar_salida())
+                correr.assert_not_called()
+        finally:
+            audio._SALIDA_OK = previo
 
 
 class TestReloj(unittest.TestCase):

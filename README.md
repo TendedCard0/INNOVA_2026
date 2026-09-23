@@ -115,7 +115,7 @@ Menú → **Mini juego**. No hay una lista de palabras ni plantillas de fábrica
 5. A los **5 segundos** sin acierto, o si la seña estable es otra letra, suena el error, el tic-tac se detiene y la partida vuelve al botón **Inicio**. **Menú** (o Esc / Q) sale en cualquier momento. Si esa partida superó el récord guardado, suena una vez el récord nuevo.
 6. Solo se conserva el **récord** personal (`record_practica` en `datos/config.json`). Una puntuación más baja no lo reemplaza.
 
-Los efectos están en `assets/sonidos/` (WAV sintetizados en el propio proyecto, sin audio de terceros). Si el equipo no tiene salida de audio, Mini juego sigue igual, en silencio.
+Los efectos están en `assets/sonidos/` (WAV sintetizados en el propio proyecto, sin audio de terceros). En Windows se oyen con `winsound`, sin FFmpeg. En Linux y macOS hace falta `ffplay`, `paplay` o `aplay`. Si no hay salida de audio, Mini juego sigue igual, en silencio.
 
 Si todavía no hay letras estáticas, Mini juego lo dice en español y pide capturarlas antes.
 
