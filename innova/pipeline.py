@@ -32,6 +32,7 @@ from innova.esquema import (
     muestra_estatica_desde_mano,
     normalizar_categoria,
 )
+from innova import textos
 from innova.overlay import dibujar_cuerpo, dibujar_manos, poner_banner
 from innova.reconocimiento import (
     ReconocedorEstatico,
@@ -191,7 +192,7 @@ class PipelineVision:
             resultado = ResultadoReconocimiento(
                 etiqueta="—" if not manos else "mano",
                 confianza=1.0 if manos else 0.0,
-                mensaje="Mano visible" if manos else "Sin manos en el encuadre",
+                mensaje=textos.mensaje_mano_visible() if manos else textos.mensaje_sin_manos(),
                 etiqueta_cruda="mano" if manos else "—",
                 modo="grabando" if self._grabacion is not None else "estatico",
             )
@@ -203,15 +204,13 @@ class PipelineVision:
         if isinstance(self.fuente, FuenteDemo):
             imagen = poner_banner(
                 imagen,
-                "Modo demostración — landmarks de ejemplo (sin cámara)",
+                textos.banner_demo(),
                 tema.BGR_LIMA,
             )
         if self.grabando:
-            n = len(self._grabacion) if self._grabacion is not None else 0
-            extra = f" · {n} fotogramas" if n else ""
             imagen = poner_banner(
                 imagen,
-                f"Grabando seña con movimiento…{extra}",
+                textos.banner_grabando(),
                 tema.BGR_NARANJA,
             )
         procesado = FotogramaProcesado(
@@ -283,11 +282,7 @@ class PipelineVision:
             ]
         con_mano = [f for f in fotogramas if f.mano is not None]
         if len(con_mano) < MIN_FOTOGRAMAS_DINAMICO:
-            raise ValueError(
-                "La seña dinámica es demasiado corta "
-                f"({len(con_mano)} fotogramas; mínimo {MIN_FOTOGRAMAS_DINAMICO}). "
-                "Mantén pulsado mientras haces el movimiento."
-            )
+            raise ValueError(textos.mensaje_sena_corta())
         pose, rostro = _ultimo_cuerpo(con_mano) if categoria == CATEGORIA_PALABRA else (None, None)
         muestra = muestra_dinamica_desde_fotogramas(
             etiqueta,

@@ -60,7 +60,8 @@ class TestFiltroEstabilidad(unittest.TestCase):
         self.assertEqual(bache.etiqueta, "A")
         hueco = f.actualizar(None, 0.0, hay_mano=False)
         self.assertEqual(hueco.etiqueta, "A")
-        self.assertIn("histéresis", hueco.mensaje.lower())
+        self.assertIn("misma seña", hueco.mensaje.lower())
+        self.assertNotIn("histéresis", hueco.mensaje.lower())
 
     def test_no_cambia_de_letra_en_un_solo_fotograma(self) -> None:
         f = _filtro()

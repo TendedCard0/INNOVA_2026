@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from innova.textos import MENSAJE_CAMARA_AUSENTE
 from innova.tema import (  # noqa: F401 — reexportados para overlay y código existente
     BGR_CAJA,
     BGR_CONEXION,
@@ -24,7 +25,7 @@ from innova.tema import (  # noqa: F401 — reexportados para overlay y código 
 # El paquete Python se llama `innova` (carpeta del repositorio), pero el
 # nombre del software es Mamatlatolli.
 NOMBRE_PRODUCTO = "Mamatlatolli"
-TITULO_VENTANA = "Mamatlatolli — Reconocimiento de LSM"
+TITULO_VENTANA = "Mamatlatolli"
 SUBTITULO = "Lengua de Señas Mexicana · Abecedario y Vocabulario"
 
 ANCHO_VIDEO = 640
@@ -65,11 +66,6 @@ MAX_DURACION_DINAMICA_S = 1.80
 MIN_FOTOGRAMAS_DINAMICO = 6
 FOTOGRAMAS_REPOSO_DINAMICO = 5
 COOLDOWN_DINAMICO_S = 0.45
-
-MENSAJE_CAMARA_AUSENTE = (
-    "No se encontró una cámara. Conecta una, revisa los permisos del sistema "
-    "y pulsa «Reintentar cámara», o ejecuta: python app.py --demo"
-)
 
 # Los colores (hex y BGR) se definen en innova.tema y se reexportan arriba.
 # aplicar_tema() actualiza estos nombres para quien lea innova.config en vivo.

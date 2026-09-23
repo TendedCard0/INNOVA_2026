@@ -18,6 +18,7 @@ from __future__ import annotations
 from collections import deque
 from dataclasses import dataclass
 
+from innova import textos
 from innova.config import (
     ETIQUETA_DETECTANDO,
     ETIQUETA_SIN_DETECCION,
@@ -140,7 +141,7 @@ class FiltroEstabilidad:
             return EstadoEstable(
                 etiqueta=self._comprometida,
                 confianza=confianza,
-                mensaje=f"Seña estable · {confianza:.0%}",
+                mensaje=textos.mensaje_sena_lista(),
                 comprometida=True,
             )
 
@@ -154,9 +155,9 @@ class FiltroEstabilidad:
 
         # Sigue vigente por histéresis (cambio inestable o hueco breve).
         if candidato is None:
-            mensaje = "Manteniendo seña (histéresis)"
+            mensaje = textos.mensaje_mantener_sena()
         else:
-            mensaje = f"Cambio inestable hacia {candidato}"
+            mensaje = textos.mensaje_cambio_inestable()
         return EstadoEstable(
             etiqueta=self._comprometida,
             confianza=self._confianza_comprometida,
@@ -178,7 +179,7 @@ class FiltroEstabilidad:
         return EstadoEstable(
             etiqueta=etiqueta,
             confianza=confianza,
-            mensaje=f"Letra comprometida: {etiqueta} · {confianza:.0%}",
+            mensaje=textos.mensaje_sena_lista(etiqueta),
             comprometida=True,
         )
 
@@ -187,12 +188,12 @@ class FiltroEstabilidad:
             return EstadoEstable(
                 etiqueta=ETIQUETA_SIN_DETECCION,
                 confianza=0.0,
-                mensaje="Sin manos en el encuadre",
+                mensaje=textos.mensaje_sin_manos(),
                 comprometida=False,
             )
         return EstadoEstable(
             etiqueta=ETIQUETA_DETECTANDO,
             confianza=0.0,
-            mensaje="Esperando seña estable…",
+            mensaje=textos.mensaje_esperando_estable(),
             comprometida=False,
         )

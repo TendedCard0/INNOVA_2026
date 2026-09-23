@@ -10,7 +10,6 @@ import customtkinter as ctk
 
 from innova import tema
 from innova.ajustes import Ajustes, cargar_ajustes, guardar_tema
-from innova.config import TITULO_VENTANA
 from innova.esquema import CATEGORIA_LETRA, CATEGORIA_PALABRA
 from innova.menu import (
     DESTINO_ABECEDARIO,
@@ -35,6 +34,8 @@ from innova.pantallas import (
     PantallaReconocimiento,
 )
 from innova.tema import aplicar_tema
+from innova import textos
+from innova.textos import SUBTITULO_DEMO, titulo_pantalla, titulo_ventana
 
 
 # Sin este id, Windows agrupa la ventana con python.exe y la barra de
@@ -109,12 +110,11 @@ class VentanaMamatlatolli(ctk.CTk):
         self._aviso_reconocimiento = ""
         self._vista_config: Ajustes | None = None
 
-        self.title(TITULO_VENTANA)
         self.geometry("1040x900")
         self.minsize(920, 720)
         self.configure(fg_color=tema.COLOR_FONDO)
         self.protocol("WM_DELETE_WINDOW", self._cerrar)
-        self.bind_all("<Escape>", lambda _e: self._cerrar())
+        self.bind_all("<Escape>", self._al_escape)
         self.bind_all("q", self._salir_si_no_escribe)
         self.bind_all("Q", self._salir_si_no_escribe)
         self.bind_all("<KeyPress-space>", self._espacio_pulsado)
@@ -126,6 +126,7 @@ class VentanaMamatlatolli(ctk.CTk):
 
     def mostrar_menu(self) -> None:
         self._navegador.volver()
+        self.title(titulo_ventana(DESTINO_MENU))
         self.geometry("1040x900")
         self._cambiar(
             PantallaMenu(
@@ -138,6 +139,7 @@ class VentanaMamatlatolli(ctk.CTk):
 
     def ir_a(self, destino: str) -> None:
         self._navegador.ir(destino)
+        self.title(titulo_ventana(destino))
         if destino == DESTINO_MENU:
             self.mostrar_menu()
             return
@@ -161,7 +163,12 @@ class VentanaMamatlatolli(ctk.CTk):
             )
             return
         if destino == DESTINO_DEMO:
-            self._abrir_reconocimiento(demo=True, categoria=CATEGORIA_LETRA)
+            self._abrir_reconocimiento(
+                demo=True,
+                categoria=CATEGORIA_LETRA,
+                nombre=titulo_pantalla(DESTINO_DEMO),
+                subtitulo=SUBTITULO_DEMO,
+            )
             return
         if destino == DESTINO_CAPTURA:
             self.geometry("1120x780")
@@ -203,7 +210,14 @@ class VentanaMamatlatolli(ctk.CTk):
             return
         self.mostrar_menu()
 
-    def _abrir_reconocimiento(self, *, demo: bool, categoria: str) -> None:
+    def _abrir_reconocimiento(
+        self,
+        *,
+        demo: bool,
+        categoria: str,
+        nombre: str | None = None,
+        subtitulo: str | None = None,
+    ) -> None:
         self.geometry("1120x760")
         aviso = self._aviso_reconocimiento
         self._aviso_reconocimiento = ""
@@ -216,16 +230,13 @@ class VentanaMamatlatolli(ctk.CTk):
                 on_volver=self.mostrar_menu,
                 aviso_inicial=aviso,
                 categoria=categoria,
+                nombre_pantalla=nombre,
+                subtitulo_pantalla=subtitulo,
             )
         )
 
     def _probar_plantilla(self, etiqueta: str, tipo: str, categoria: str = CATEGORIA_LETRA) -> None:
-        clase = "dinámica" if tipo == "dinamico" else "estática"
-        modo = "Vocabulario" if categoria == CATEGORIA_PALABRA else "Abecedario"
-        self._aviso_reconocimiento = (
-            f"Prueba la seña «{etiqueta}» ({clase}, {categoria}) en {modo}. "
-            "Si es dinámica, muévete o usa «Seña con movimiento»."
-        )
+        self._aviso_reconocimiento = textos.aviso_probar(etiqueta, tipo, categoria)
         destino = DESTINO_VOCABULARIO if categoria == CATEGORIA_PALABRA else DESTINO_ABECEDARIO
         self.ir_a(destino)
 
@@ -309,6 +320,12 @@ class VentanaMamatlatolli(ctk.CTk):
             return False
         nombre = type(widget).__name__
         return "Button" in nombre
+
+    def _al_escape(self, _evento=None) -> None:
+        if self._navegador.accion_escape() == "volver":
+            self.mostrar_menu()
+            return
+        self._cerrar()
 
     def _salir_si_no_escribe(self, _evento=None) -> None:
         if self._escribiendo():
