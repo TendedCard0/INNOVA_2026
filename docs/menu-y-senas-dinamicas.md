@@ -15,12 +15,13 @@ El programa se llama **Mamatlatolli**. El uso diario son dos modos:
 
 Al abrir `python app.py` aparece el menú (español), con el logo oficial
 (`assets/logo.png`) centrado arriba —o un marco placeholder si el archivo
-no está— y siete tarjetas:
+no está— y ocho tarjetas:
 
 | Opción | Qué hace |
 | --- | --- |
 | **Abecedario** | Cámara en vivo, solo letras (estáticas y dinámicas). |
 | **Vocabulario** | Cámara en vivo, solo palabras. Usa mano, pose y rostro. Si aún no hay plantillas de palabra, muestra un estado vacío en español. |
+| **Mini juego** | Letra estática al azar tras pulsar Inicio, cronómetro de 5 segundos y puntos por rapidez (1000 / 700 / 500). Solo letras que ya capturaste; si no hay, un aviso en español. |
 | **Capturar plantillas** | Guardar una pose o una trayectoria; eliges Letra o Palabra. |
 | **Biblioteca de señas** | Listar, filtrar (`letra` / `palabra` / `todas`), probar o borrar. |
 | **Configuración** | Umbrales de confianza/estabilidad, sensibilidad al movimiento y apariencia (modo claro / modo oscuro). |
@@ -42,9 +43,39 @@ salir del menú. Lo mismo está en **Configuración**. La elección se guarda
 en `datos/config.json` (`"tema": "claro"` o `"tema": "oscuro"`) y
 Mamatlatolli la aplica al volver a abrir.
 
-`python app.py --demo` también abre el menú; *Abecedario* y
-*Vocabulario* usan entonces el video sintético. *Modo demostración*
+`python app.py --demo` también abre el menú; *Abecedario*,
+*Vocabulario* y *Mini juego* usan entonces el video sintético. *Modo demostración*
 abre Abecedario sin cámara aunque no hayas pasado `--demo`.
+
+## Mini juego
+
+**Mini juego** no enseña un vocabulario ni trae palabras precargadas. Toma las
+plantillas estáticas de `categoria: "letra"` que ya están en
+`datos/plantillas/`. Al abrir el modo se ve el récord y el botón **Inicio**:
+la letra y los **5 segundos** arrancan solo al pulsarlo. El tiempo se ve en
+un aro que se vacía, en la cuenta numérica y en un tic-tac suave.
+
+- Acierto: la predicción **estable** (el mismo filtro de Abecedario, no la
+  estimación instantánea) es esa letra antes de los 5 s. Los puntos dependen
+  de la rapidez: **1000** si tarda menos de 1 s, **700** de 1 s a menos de 3 s,
+  **500** de 3 s a menos de 5 s. Suena el acierto y, sin otro botón, elige otra
+  letra —sin repetir la anterior si hay más de una— y vuelve a contar 5 s.
+  Los puntos se acumulan.
+- Fallo: se cumplen los 5 segundos, o la seña estable es otra letra. Suena el
+  error, se detiene el tic-tac y la partida vuelve al botón **Inicio**.
+  **Menú**, Esc y Q salen en cualquier momento, sin arrancar una ronda.
+- Récord: en `datos/config.json`, la clave `record_practica` solo se
+  actualiza si la puntuación es mayor que la guardada. Ese momento suena una
+  sola vez, no en cada acierto.
+- Sonidos: `assets/sonidos/*.wav`, sintetizados con numpy en `innova/audio.py`.
+  Windows los reproduce con `winsound` (sin FFmpeg). Linux y macOS usan
+  `ffplay`, `paplay` o `aplay`, fuera del hilo de la cámara. Si falta el
+  archivo o no hay salida de audio, el juego sigue en silencio.
+
+Si no hay letras estáticas, la pantalla lo explica en español y remite a
+**Capturar plantillas** (Letra · Estática). Las plantillas dinámicas y las
+palabras no entran en esta partida. Mini juego no usa DTW: compara la pose
+quieta.
 
 ## Cómo capturar
 

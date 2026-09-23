@@ -18,6 +18,7 @@ from innova.menu import (
     DESTINO_CONFIGURACION,
     DESTINO_DEMO,
     DESTINO_MENU,
+    DESTINO_PRACTICA,
     DESTINO_VOCABULARIO,
     Navegador,
     categoria_de_destino,
@@ -28,6 +29,7 @@ from innova.pantallas import (
     PantallaCaptura,
     PantallaConfiguracion,
     PantallaMenu,
+    PantallaPractica,
     PantallaReconocimiento,
 )
 from innova.tema import aplicar_tema
@@ -77,6 +79,19 @@ class VentanaMamatlatolli(ctk.CTk):
         self._navegador.ir(destino)
         if destino == DESTINO_MENU:
             self.mostrar_menu()
+            return
+        if destino == DESTINO_PRACTICA:
+            self.geometry("1120x820")
+            self._cambiar(
+                PantallaPractica(
+                    self._contenedor,
+                    modo_demo=self._modo_demo_cli,
+                    indice_camara=self._indice_camara,
+                    ajustes=self._ajustes,
+                    on_volver=self.mostrar_menu,
+                    on_record=self._fijar_record,
+                )
+            )
             return
         if destino in {DESTINO_ABECEDARIO, DESTINO_VOCABULARIO}:
             self._abrir_reconocimiento(
@@ -152,6 +167,9 @@ class VentanaMamatlatolli(ctk.CTk):
         )
         destino = DESTINO_VOCABULARIO if categoria == CATEGORIA_PALABRA else DESTINO_ABECEDARIO
         self.ir_a(destino)
+
+    def _fijar_record(self, record: int) -> None:
+        self._ajustes = replace(self._ajustes, record_practica=int(record)).normalizado()
 
     def _guardar_ajustes(self, ajustes: Ajustes) -> None:
         self._ajustes = ajustes

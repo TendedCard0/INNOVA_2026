@@ -36,6 +36,8 @@ class Ajustes:
     umbral_movimiento: float = UMBRAL_MOVIMIENTO
     metrica: str = METRICA_DISTANCIA
     tema: str = TEMA_CLARO
+    # Récord de Mini juego. Solo sube; guardar_record_practica no lo baja.
+    record_practica: int = 0
 
     def normalizado(self) -> Ajustes:
         metrica = self.metrica if self.metrica in {"euclidiana", "coseno"} else METRICA_DISTANCIA
@@ -50,6 +52,7 @@ class Ajustes:
             umbral_movimiento=_clip(self.umbral_movimiento, 0.02, 0.30),
             metrica=metrica,
             tema=normalizar_tema(self.tema),
+            record_practica=_entero_no_negativo(self.record_practica),
         )
 
 
@@ -81,6 +84,40 @@ def guardar_ajustes(ajustes: Ajustes, ruta: str | Path | None = None) -> Path:
     return destino
 
 
+def cargar_record_practica(ruta: str | Path | None = None) -> int:
+    """Récord personal de Mini juego guardado en ``datos/config.json``."""
+    return cargar_ajustes(ruta).record_practica
+
+
+def guardar_record_practica(puntuacion: int, ruta: str | Path | None = None) -> int:
+    """Escribe el récord solo si ``puntuacion`` lo supera.
+
+    No pisa el tema ni los demás ajustes. Si la puntuación es menor o igual,
+    el archivo queda como estaba y se devuelve el récord ya guardado.
+    """
+    destino = Path(ruta) if ruta is not None else RUTA_AJUSTES
+    destino.parent.mkdir(parents=True, exist_ok=True)
+    bruto: dict[str, Any] = {}
+    if destino.is_file():
+        try:
+            cargado = json.loads(destino.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            cargado = None
+        if isinstance(cargado, dict):
+            bruto = dict(cargado)
+    if not bruto:
+        bruto = asdict(cargar_ajustes(destino))
+    actual = _entero_no_negativo(bruto.get("record_practica", 0))
+    candidato = _entero_no_negativo(puntuacion)
+    vigente = max(actual, candidato)
+    bruto["record_practica"] = vigente
+    destino.write_text(
+        json.dumps(bruto, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    return vigente
+
+
 def guardar_tema(modo: str, ruta: str | Path | None = None) -> str:
     """Escribe solo la clave ``tema`` en config.json, sin pisar otros ajustes."""
     elegido = normalizar_tema(modo)
@@ -110,6 +147,17 @@ def ajustes_desde_dict(datos: dict[str, Any]) -> Ajustes:
         if clave in datos:
             base[clave] = datos[clave]
     return Ajustes(**base).normalizado()
+
+
+def _entero_no_negativo(valor: Any) -> int:
+    try:
+        numero = int(valor)
+    except (TypeError, ValueError):
+        try:
+            numero = int(float(valor))
+        except (TypeError, ValueError):
+            return 0
+    return max(0, numero)
 
 
 def _clip(valor: float, minimo: float, maximo: float) -> float:

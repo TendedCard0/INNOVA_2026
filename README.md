@@ -2,7 +2,7 @@
 
 Prototipo de escritorio para **reconocer Lengua de Señas Mexicana (LSM)** a partir de la cámara del equipo.
 
-**Mamatlatolli** abre un menú principal de tarjetas: **Abecedario** (letras) y **Vocabulario** (palabras) por separado, más captura de plantillas, biblioteca, configuración y modo demostración.
+**Mamatlatolli** abre un menú principal de tarjetas: **Abecedario** (letras) y **Vocabulario** (palabras) por separado, **Mini juego** (letra estática a contrarreloj y récord personal), más captura de plantillas, biblioteca, configuración y modo demostración.
 
 El menú usa acentos tríadicos (**naranja**, **lima** e **índigo**) sobre fondo claro u oscuro. El logo oficial vive en `assets/logo.png` (PNG transparente) y se muestra centrado arriba. Si ese archivo no está, el menú usa un marco placeholder.
 
@@ -10,7 +10,7 @@ El menú usa acentos tríadicos (**naranja**, **lima** e **índigo**) sobre fond
 
 ## ¿Qué hace hoy? (Abecedario y Vocabulario)
 
-1. Arranca en un **menú** de tarjetas en español: *Abecedario*, *Vocabulario*, *Capturar plantillas*, *Biblioteca de señas*, *Configuración*, *Modo demostración*, *Acerca de Mamatlatolli*. El logo (o su placeholder) va centrado arriba.
+1. Arranca en un **menú** de tarjetas en español: *Abecedario*, *Vocabulario*, *Mini juego*, *Capturar plantillas*, *Biblioteca de señas*, *Configuración*, *Modo demostración*, *Acerca de Mamatlatolli*. El logo (o su placeholder) va centrado arriba.
 2. Detecta hasta dos manos (MediaPipe Hands) y dibuja landmarks, conexiones y un recuadro.
 3. **Abecedario** compara solo plantillas `categoria: "letra"` (solo manos). **Vocabulario** compara solo `categoria: "palabra"` y, además de la mano, usa **pose** (33 puntos) y **rostro** (malla facial). Si aún no hay palabras, muestra un estado vacío en español.
 4. Compara una pose quieta con **plantillas estáticas** (vectores de landmarks normalizados). En palabras, la distancia mezcla mano, pose y rostro; si falta el cuerpo o la cara, esa parte se omite.
@@ -18,6 +18,7 @@ El menú usa acentos tríadicos (**naranja**, **lima** e **índigo**) sobre fond
 6. Aplica un **filtro de estabilidad** antes de comprometer una seña (las dinámicas se confirman al terminar el gesto, no en cada fotograma).
 7. Permite **organizar** el banco (captura Letra/Palabra × estática/dinámica; biblioteca con filtro letra | palabra | todas).
 8. En Vocabulario dibuja un esqueleto y puntos del rostro con los colores del tema (índigo, lima, naranja).
+9. **Mini juego** espera a que pulses **Inicio**: entonces muestra una letra estática que ya capturaste y arranca un cronómetro circular de **5 segundos**. La seña estable suma **1000** puntos si llega en menos de 1 s, **700** entre 1 y 3 s, y **500** de 3 s a menos de 5 s. Un acierto pasa solo a la siguiente letra. A los 5 s, o si la seña estable es otra letra, la partida termina y vuelve a **Inicio**. En `datos/config.json` se guarda únicamente el **récord** (la puntuación más alta).
 
 Abecedario deja `pose` y `rostro` en `null` para ir más ligero. Si MediaPipe Pose o Face Mesh no cargan, Vocabulario sigue reconociendo con la mano.
 
@@ -103,6 +104,21 @@ El reconocedor **no** descarga conjuntos enormes ni entrena una red. Tú (o quie
 3. Pulsa **Seña con movimiento** (o mantén **Space**), haz el gesto y suelta.
 4. El archivo lleva `categoria`, `tipo: dinamico` y `secuencia`. En **Palabra**, cada fotograma puede traer `pose` y `rostro`. En **Letra** siguen en `null`.
 
+## Mini juego
+
+Menú → **Mini juego**. No hay una lista de palabras ni plantillas de fábrica: la partida usa las letras estáticas (`categoria: letra`, tipo estática) que guardaste en **Capturar plantillas**.
+
+1. Al entrar se ve el **récord** y el botón **Inicio**. La letra no aparece y el cronómetro no corre.
+2. **Inicio** muestra la letra y arranca el **cronómetro circular** de **5 segundos**, con la cuenta numérica y un tic-tac suave.
+3. Seña esa letra con la mano, quieta, frente a la cámara. Un parpadeo no cuenta: tiene que estabilizarse el mismo filtro que usa Abecedario.
+4. Si aciertas a tiempo, sumas según la rapidez: **1000** (menos de 1 s), **700** (de 1 s a menos de 3 s) o **500** (de 3 s a menos de 5 s). Suena el acierto, sale otra letra (sin repetir la anterior, si hay más de una) y el reloj vuelve a 5 segundos. Los puntos se acumulan.
+5. A los **5 segundos** sin acierto, o si la seña estable es otra letra, suena el error, el tic-tac se detiene y la partida vuelve al botón **Inicio**. **Menú** (o Esc / Q) sale en cualquier momento. Si esa partida superó el récord guardado, suena una vez el récord nuevo.
+6. Solo se conserva el **récord** personal (`record_practica` en `datos/config.json`). Una puntuación más baja no lo reemplaza.
+
+Los efectos están en `assets/sonidos/` (WAV sintetizados en el propio proyecto, sin audio de terceros). En Windows se oyen con `winsound`, sin FFmpeg. En Linux y macOS hace falta `ffplay`, `paplay` o `aplay`. Si no hay salida de audio, Mini juego sigue igual, en silencio.
+
+Si todavía no hay letras estáticas, Mini juego lo dice en español y pide capturarlas antes.
+
 Recomendaciones:
 
 - Varias plantillas por seña (distancia, giro, luz).
@@ -133,7 +149,7 @@ Recomendaciones:
 
 Mamatlatolli abre en **modo claro**. En **Configuración**, o con el control **Apariencia** del menú principal, se elige **Modo claro** o **Modo oscuro**. La ventana cambia al momento, sin cerrar el programa.
 
-La preferencia se guarda en `datos/config.json` (`"tema": "claro"` o `"tema": "oscuro"`) y se vuelve a aplicar al siguiente arranque. Los acentos siguen siendo naranja, lima e índigo, con tonos legibles sobre cada fondo.
+La preferencia se guarda en `datos/config.json` (`"tema": "claro"` o `"tema": "oscuro"`) y se vuelve a aplicar al siguiente arranque. En el mismo archivo, `"record_practica"` guarda el récord de Mini juego (solo si la partida lo supera). Los acentos siguen siendo naranja, lima e índigo, con tonos legibles sobre cada fondo.
 
 ## Permisos de la cámara
 
@@ -152,7 +168,9 @@ app.py                     Punto de entrada
 innova/
   tema.py                  Paletas clara y oscura (naranja / lima / índigo) y logo
   menu.py                  Destinos del menú (sin Tk)
-  pantallas.py             Menú, reconocimiento, captura, biblioteca, ajustes
+  pantallas.py             Menú, reconocimiento, práctica, captura, biblioteca, ajustes
+  practica.py              Mini juego: letras en 5 segundos, puntos por rapidez y récord
+  audio.py                 Efectos del mini juego (acierto, error, récord, tic-tac)
   ui.py                    Ventana (CustomTkinter) y navegación
   camara.py                Captura (cámara real o fuente demo)
   detector.py              MediaPipe Hands + detector de demostración

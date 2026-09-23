@@ -284,6 +284,7 @@ RUTA_LOGO = RUTA_ASSETS / "logo.png"
 _ICONOS_MENU = (
     "abecedario",
     "vocabulario",
+    "minijuego",
     "capturar",
     "biblioteca",
     "configurar",
@@ -302,11 +303,29 @@ def imagen_logo(lado: int = 96, base: Path | None = None) -> tuple[Image.Image, 
     """Imagen cuadrada del logo real o del marco placeholder.
 
     El segundo valor indica si se cargó un archivo (True) o el placeholder (False).
+    El archivo se centra en el cuadrado sin deformarlo.
     """
     ruta = resolver_logo(base)
     if ruta is not None:
         return _ajustar_logo(Image.open(ruta).convert("RGBA"), lado), True
     return _dibujar_placeholder_logo(lado), False
+
+
+def imagen_logo_encajada(
+    ancho_max: int,
+    alto_max: int,
+    base: Path | None = None,
+) -> tuple[Image.Image, bool]:
+    """Logo a tamaño real de su proporción, dentro de la caja máxima.
+
+    Si no hay archivo, devuelve el placeholder cuadrado de ``alto_max``.
+    """
+    ruta = resolver_logo(base)
+    if ruta is None:
+        return _dibujar_placeholder_logo(alto_max), False
+    copia = Image.open(ruta).convert("RGBA")
+    copia.thumbnail((max(1, ancho_max), max(1, alto_max)), Image.Resampling.LANCZOS)
+    return copia, True
 
 
 def icono_menu(nombre: str, acento: str, lado: int = 56) -> Image.Image:
@@ -399,6 +418,22 @@ def _dibujar_glifo(
                 draw.rounded_rectangle(caja_f, radius=w * 0.08, fill=color)
             else:
                 draw.rounded_rectangle(caja_f, radius=w * 0.08, outline=color, width=grosor)
+        return
+
+    if nombre in {"practica", "minijuego"}:
+        # Mando: cuerpo, cruceta y dos botones.
+        cuerpo = (x0, y0 + h * 0.28, x1, y1 - h * 0.02)
+        draw.rounded_rectangle(cuerpo, radius=w * 0.22, outline=color, width=grosor)
+        hombrera = (x0 + w * 0.08, y0 + h * 0.12, x0 + w * 0.42, y0 + h * 0.36)
+        draw.rounded_rectangle(hombrera, radius=w * 0.08, outline=color, width=max(2, grosor - 1))
+        cx, cy = x0 + w * 0.34, y0 + h * 0.58
+        brazo = w * 0.16
+        draw.line((cx - brazo, cy, cx + brazo, cy), fill=color, width=grosor)
+        draw.line((cx, cy - brazo, cx, cy + brazo * 0.85), fill=color, width=grosor)
+        radio = w * 0.07
+        for ox, oy in ((0.72, 0.46), (0.86, 0.62)):
+            bx, by = x0 + w * ox, y0 + h * oy
+            draw.ellipse((bx - radio, by - radio, bx + radio, by + radio), fill=color)
         return
 
     if nombre == "vocabulario":
