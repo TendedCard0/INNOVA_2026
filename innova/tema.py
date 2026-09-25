@@ -13,6 +13,8 @@ from typing import Any, Optional
 
 from PIL import Image, ImageDraw
 
+from innova.rutas import ruta_assets
+
 # Claves que comparten las dos paletas (superficies, texto, tríada y BGR).
 TOKENS_REQUERIDOS: tuple[str, ...] = (
     "COLOR_FONDO",
@@ -278,7 +280,7 @@ def acento_suave_de_indice(indice: int) -> str:
     return TRIDADA_SUAVE[indice % 3]
 
 
-RUTA_ASSETS = Path(__file__).resolve().parent.parent / "assets"
+RUTA_ASSETS = ruta_assets()
 RUTA_LOGO = RUTA_ASSETS / "logo.png"
 RUTA_ICONO_PNG = RUTA_ASSETS / "icono.png"
 RUTA_ICONO_ICO = RUTA_ASSETS / "icono.ico"

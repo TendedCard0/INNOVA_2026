@@ -89,6 +89,16 @@ Sigue apareciendo el menú; *Abecedario*, *Vocabulario* y *Modo demostración* u
 python app.py --camara 1
 ```
 
+## Instalador de Windows
+
+Para un equipo escolar, Mamatlatolli se entrega como **Setup** (`.exe`), no solo como carpeta portable. El instalador crea accesos directos en el menú Inicio y en el escritorio, y se desinstala desde Configuración de Windows. El icono es `assets/icono.ico`.
+
+Las señas, la configuración y el récord **no** se guardan dentro de la carpeta del programa. Quedan en `%LOCALAPPDATA%\Mamatlatolli`, así se pueden escribir aunque el programa esté en una ruta protegida. Exportar e importar siguen usando esa biblioteca.
+
+Cómo construirlo, cómo bajar el artifact de GitHub Actions y la nota de SmartScreen: [`docs/empaquetado.md`](docs/empaquetado.md).
+
+`python app.py` y `python -m innova` siguen siendo la forma de correr el código en desarrollo, con `datos/` dentro del repositorio.
+
 ## Cómo capturar plantillas
 
 El reconocedor **no** descarga conjuntos enormes ni entrena una red. Tú (o quien seña, con su consentimiento) guardas ejemplos.
@@ -190,13 +200,13 @@ Recomendaciones:
 
 Mamatlatolli abre en **modo claro**. En **Configuración**, o con el control **Apariencia** del menú principal, se elige **Modo claro** o **Modo oscuro**. La ventana cambia al momento, sin cerrar el programa.
 
-La preferencia se guarda en `datos/config.json` (`"tema": "claro"` o `"tema": "oscuro"`) y se vuelve a aplicar al siguiente arranque. En el mismo archivo, `"record_practica"` guarda el récord de Mini juego (solo si la partida lo supera). Los acentos siguen siendo naranja, lima e índigo, con tonos legibles sobre cada fondo.
+La preferencia se guarda en `datos/config.json` (`"tema": "claro"` o `"tema": "oscuro"`) y se vuelve a aplicar al siguiente arranque. En el mismo archivo, `"record_practica"` guarda el récord de Mini juego (solo si la partida lo supera). En la app instalada de Windows ese archivo está en `%LOCALAPPDATA%\Mamatlatolli\config.json`. Los acentos siguen siendo naranja, lima e índigo, con tonos legibles sobre cada fondo.
 
 ## Permisos de la cámara
 
 Si la ventana indica que **no se encontró una cámara**, casi siempre es un permiso del sistema o un dispositivo ocupado por otra app (Zoom, Teams, el navegador, etc.).
 
-- **Windows:** Configuración → Privacidad y seguridad → Cámara → permite el acceso para el escritorio / Python.
+- **Windows:** Configuración → Privacidad y seguridad → Cámara → permite el acceso para el escritorio. En desarrollo el programa aparece como Python; si lo instalaste con el Setup, el permiso es para **Mamatlatolli**.
 - **macOS:** Configuración del Sistema → Privacidad y seguridad → Cámara → activa el permiso para Terminal, VS Code o Python.
 - **Linux:** verifica que tu usuario esté en el grupo `video` y que ninguna otra aplicación tenga el dispositivo `/dev/video0` bloqueado.
 
@@ -205,8 +215,11 @@ Cierra otras apps que usen la cámara e intenta de nuevo, o pulsa **Reintentar c
 ## Estructura del código
 
 ```
-app.py                     Punto de entrada
+app.py                     Punto de entrada (también lo usa el .exe)
+empaquetado/               PyInstaller, Inno Setup y el script de build
+.github/workflows/         Instalador Windows (artifact en windows-latest)
 innova/
+  rutas.py                 Carpeta de datos: datos/ en desarrollo, AppData instalado
   tema.py                  Paletas clara y oscura (naranja / lima / índigo) y logo
   menu.py                  Destinos del menú (sin Tk)
   pantallas.py             Menú, reconocimiento, práctica, captura, biblioteca, ajustes
@@ -231,6 +244,7 @@ innova/
   pipeline.py              Une todo fotograma a fotograma
   config.py                Textos, tamaños y umbrales (colores reexportados de tema)
 docs/esquema-datos.md      Esquema JSON (español)
+docs/empaquetado.md        Instalador Windows, datos de usuario y SmartScreen
 docs/menu-y-senas-dinamicas.md  Menú, captura DTW, auto vs botón
 datos/plantillas/          Plantillas JSON (locales, no se versionan)
 assets/logo.png            Logo oficial (PNG transparente). Si falta, el menú usa un placeholder

@@ -20,7 +20,9 @@ from typing import Callable
 
 import numpy as np
 
-RUTA_SONIDOS = Path(__file__).resolve().parent.parent / "assets" / "sonidos"
+from innova.rutas import ruta_sonidos
+
+RUTA_SONIDOS = ruta_sonidos()
 _FRECUENCIA = 22050
 _NOMBRES = ("acierto", "error", "record", "tic", "tac")
 _SALIDA_OK: bool | None = None
@@ -29,15 +31,25 @@ Lanzador = Callable[[Path], None]
 
 
 def asegurar_sonidos(carpeta: Path | None = None) -> Path:
-    """Crea los WAV que falten. Los que ya están no se reescriben."""
+    """Crea los WAV que falten. Los que ya están no se reescriben.
+
+    Si la carpeta es de solo lectura (el programa instalado en Program Files),
+    se queda con los WAV que ya venían empaquetados y no interrumpe Mini juego.
+    """
     destino = carpeta if carpeta is not None else RUTA_SONIDOS
-    destino.mkdir(parents=True, exist_ok=True)
+    try:
+        destino.mkdir(parents=True, exist_ok=True)
+    except OSError:
+        return destino
     pendientes = [nombre for nombre in _NOMBRES if not (destino / f"{nombre}.wav").is_file()]
     if not pendientes:
         return destino
     clips = _sintetizar()
     for nombre in pendientes:
-        _escribir_wav(destino / f"{nombre}.wav", clips[nombre])
+        try:
+            _escribir_wav(destino / f"{nombre}.wav", clips[nombre])
+        except OSError:
+            continue
     return destino
 
 

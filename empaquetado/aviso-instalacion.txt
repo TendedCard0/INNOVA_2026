@@ -1,0 +1,14 @@
+﻿Mamatlatolli
+
+Este asistente instala Mamatlatolli para tu usuario de Windows.
+No hace falta ser administrador.
+
+El programa queda en:
+%LOCALAPPDATA%\Programs\Mamatlatolli
+
+Tus señas, la configuración y el récord de Mini juego quedan en otra carpeta, que sí puedes escribir:
+%LOCALAPPDATA%\Mamatlatolli
+
+Desinstalar el programa no borra esa carpeta. Si quieres empezar de cero, bórrala a mano después de desinstalar.
+
+Windows SmartScreen puede mostrar una advertencia porque este instalador no tiene firma de código. Puedes elegir «Más información» y luego «Ejecutar de todas formas».
