@@ -9,8 +9,8 @@ Proyecto estudiantil del Instituto Tecnológico de San Juan del Río.
 ## Para quién es
 
 - Para un grupo escolar que quiere ver, en la computadora, cómo se lee una seña que ellos mismos guardaron.
-- Para quien presenta la demo y necesita instalar, capturar una letra y abrir el mini juego sin tocar el código.
-- Para quien quiere llevar las mismas señas a otra computadora del laboratorio.
+- Para quienes buscan una mayor inclusion en el mundo.
+- Para quien quiere aprender el lenguaje de señas mexicano.
 
 Mamatlatolli no sustituye a una persona que enseña LSM ni trae un curso armado.
 
