@@ -1,331 +1,87 @@
 # Mamatlatolli
 
-Prototipo de escritorio para **reconocer Lengua de Señas Mexicana (LSM)** a partir de la cámara del equipo.
+<p align="center">
+  <img src="assets/logo.png" alt="Logo de Mamatlatolli" width="320">
+</p>
 
-**Mamatlatolli** abre un menú principal de tarjetas: **Abecedario** (letras) y **Vocabulario** (palabras) por separado, **Mini juego** (letra estática a contrarreloj y récord personal), más captura de plantillas, biblioteca, configuración y modo demostración.
+**Mamatlatolli** reconoce Lengua de Señas Mexicana (LSM) con la cámara de la computadora. Capturas las señas de tu grupo y, cuando la mano se parece a una de esas plantillas, el texto aparece en pantalla.
 
-El menú usa acentos tríadicos (**naranja**, **lima** e **índigo**) sobre fondo claro u oscuro. El logo oficial vive en `assets/logo.png` (PNG transparente) y se muestra centrado arriba, sin repetir el nombre ni el eslogan: ya van en el PNG. Si ese archivo no está, el menú usa un marco placeholder con el nombre. La ventana y, en Windows, la barra de tareas usan la marca (la M con la mano) de `assets/icono.png` y `assets/icono.ico`.
+No trae un banco de señas ni una red entrenada. Cada equipo guarda las suyas.
 
-Si la biblioteca está vacía, la demo igual se entiende: Abecedario, Vocabulario, Mini juego, Capturar plantillas y Biblioteca de señas dicen en español qué hacer (ir a **Capturar plantillas**). Los avisos de cámara, seña guardada, acierto y tiempo agotado no muestran jerga ni comandos. **Esc** y **← Menú** regresan al menú; en el menú, **Esc** o **Q** cierran Mamatlatolli. Los títulos de la ventana coinciden con las tarjetas, y Configuración usa el mismo control de modo claro / oscuro que el menú.
+Proyecto estudiantil — Instituto Tecnológico de San Juan del Río.
 
-> Proyecto estudiantil — Instituto Tecnológico de San Juan del Río.
+## Empieza aquí
 
-## ¿Qué hace hoy? (Abecedario y Vocabulario)
+- **[Guía de usuario](docs/guia-usuario.md)** — instalar, capturar una letra, probar Abecedario y abrir el mini juego.
+- **[Cómo funciona](docs/como-funciona.md)** — de la cámara al texto, con diagrama.
+- **[Instalador de Windows](docs/empaquetado.md)** — bajar el Setup y saber dónde quedan las señas.
 
-1. Arranca en un **menú** de tarjetas en español: *Abecedario*, *Vocabulario*, *Mini juego*, *Capturar plantillas*, *Biblioteca de señas*, *Configuración*, *Modo demostración*, *Acerca de Mamatlatolli*. El logo (o su placeholder) va centrado arriba, sin un título duplicado debajo.
-2. Detecta hasta dos manos (MediaPipe Hands) y dibuja landmarks, conexiones y un recuadro.
-3. **Abecedario** compara solo plantillas `categoria: "letra"` (solo manos). **Vocabulario** compara solo `categoria: "palabra"` y, además de la mano, usa **pose** (33 puntos) y **rostro** (malla facial). Si aún no hay palabras, muestra un estado vacío en español.
-4. Compara una pose quieta con **plantillas estáticas** (vectores de landmarks normalizados). En palabras, la distancia mezcla mano, pose y rostro; si falta el cuerpo o la cara, esa parte se omite.
-5. Si la mano se mueve con claridad ~0,4–0,8 s —o si mantienes **Seña con movimiento** / **Space**— compara la **trayectoria** con plantillas dinámicas de esa categoría mediante **DTW**. En palabras, cada fotograma de la secuencia puede llevar pose y rostro.
-6. Aplica un **filtro de estabilidad** antes de comprometer una seña (las dinámicas se confirman al terminar el gesto, no en cada fotograma).
-7. Permite **organizar** el banco (captura Letra/Palabra × estática/dinámica; biblioteca con filtro letra | palabra | todas) y **llevarlo a otra computadora** (Exportar / Importar un archivo `.mamatlatolli`).
-8. En Vocabulario dibuja un esqueleto y puntos del rostro con los colores del tema (índigo, lima, naranja).
-9. **Mini juego** espera a que pulses **Inicio**: entonces muestra una letra estática que ya capturaste y arranca un cronómetro circular de **5 segundos**. La seña estable suma **1000** puntos si llega en menos de 1 s, **700** entre 1 y 3 s, y **500** de 3 s a menos de 5 s. Un acierto pasa solo a la siguiente letra. A los 5 s, o si la seña estable es otra letra, la partida termina y vuelve a **Inicio**. En `datos/config.json` se guarda únicamente el **récord** (la puntuación más alta).
+## Qué incluye
 
-Abecedario deja `pose` y `rostro` en `null` para ir más ligero. Si MediaPipe Pose o Face Mesh no cargan, Vocabulario sigue reconociendo con la mano.
+- Menú en español: **Abecedario**, **Vocabulario**, **Mini juego**, **Capturar plantillas**, **Biblioteca de señas**, **Configuración**, **Modo demostración** y **Acerca de Mamatlatolli**.
+- Abecedario con las manos. Vocabulario suma cuerpo y rostro.
+- Señas quietas y señas con movimiento.
+- Mini juego de letras a contrarreloj, con récord en esa computadora.
+- Exportar e importar la biblioteca en un archivo `.mamatlatolli`.
+- Modo claro y modo oscuro.
 
-Detalle del menú, la captura dinámica y el enrutado automático vs botón: [`docs/menu-y-senas-dinamicas.md`](docs/menu-y-senas-dinamicas.md). Esquema JSON: [`docs/esquema-datos.md`](docs/esquema-datos.md).
+## Instalación rápida
 
-## Requisitos
+### Setup de Windows
 
-- Python 3.10, 3.11 o 3.12
-- Una cámara web (o el modo demostración, si solo quieres ver la interfaz)
-- Windows, macOS o Linux
+Para un equipo del salón, usa **Mamatlatolli-Setup.exe**. Se baja del artifact **Mamatlatolli-Windows**, en el workflow **Instalador Windows de Mamatlatolli** de GitHub Actions. Crea accesos directos y se desinstala desde Configuración de Windows.
 
-Se recomienda un entorno virtual para no mezclar librerías con otras materias o proyectos.
+Pasos, SmartScreen y la carpeta `%LOCALAPPDATA%\Mamatlatolli`: [docs/empaquetado.md](docs/empaquetado.md). La demo, sin comandos: [docs/guia-usuario.md](docs/guia-usuario.md).
 
-## Instalación
+<a id="desde-el-codigo"></a>
 
-En la carpeta del repositorio:
+### Desde el código
+
+Python 3.10, 3.11 o 3.12, en Windows, macOS o Linux. Conviene un entorno virtual.
 
 ```bash
 python -m venv .venv
 ```
 
-Activa el entorno:
-
-- Windows (PowerShell): `.venv\Scripts\Activate.ps1`
-- Windows (cmd): `.venv\Scripts\activate.bat`
-- macOS / Linux: `source .venv/bin/activate`
-
-Instala las dependencias:
+Actívalo (`.venv\Scripts\Activate.ps1` en PowerShell, `source .venv/bin/activate` en macOS o Linux) e instala:
 
 ```bash
 pip install --upgrade pip
 pip install -r requirements.txt
-```
-
-En Linux puede hacer falta el soporte de Tk:
-
-```bash
-sudo apt install python3-tk
-```
-
-## Cómo ejecutarlo
-
-Desde la raíz del proyecto, con el entorno virtual activado:
-
-```bash
 python app.py
 ```
 
-La ventana abre en el **menú de Mamatlatolli**. También funciona:
+También funciona `python -m innova`. Sin cámara: `python app.py --demo`. Otra cámara: `python app.py --camara 1`. En Linux, si la ventana no abre, instala `python3-tk`.
 
-```bash
-python -m innova
-```
+Las señas de esta forma de correr quedan en `datos/`, dentro del repositorio, y no se suben al git. Pruebas: `python -m unittest discover -s tests -v`.
 
-### Si no hay cámara (o quieres ensayar la interfaz)
-
-```bash
-python app.py --demo
-```
-
-Sigue apareciendo el menú; *Abecedario*, *Vocabulario* y *Modo demostración* usan un video sintético. Sirve para practicar la captura y ver el filtro, pero no sustituye a una seña real.
-
-### Otra cámara
-
-```bash
-python app.py --camara 1
-```
-
-## Instalador de Windows
-
-Para un equipo escolar, Mamatlatolli se entrega como **Setup** (`.exe`), no solo como carpeta portable. El instalador crea accesos directos en el menú Inicio y en el escritorio, y se desinstala desde Configuración de Windows. El icono es `assets/icono.ico`.
-
-Las señas, la configuración y el récord **no** se guardan dentro de la carpeta del programa. Quedan en `%LOCALAPPDATA%\Mamatlatolli`, así se pueden escribir aunque el programa esté en una ruta protegida. Exportar e importar siguen usando esa biblioteca.
-
-Cómo construirlo, cómo bajar el artifact de GitHub Actions y la nota de SmartScreen: [`docs/empaquetado.md`](docs/empaquetado.md).
-
-`python app.py` y `python -m innova` siguen siendo la forma de correr el código en desarrollo, con `datos/` dentro del repositorio.
-
-## Cómo capturar plantillas
-
-El reconocedor **no** descarga conjuntos enormes ni entrena una red. Tú (o quien seña, con su consentimiento) guardas ejemplos.
-
-### Estática (A, B, C… o HOLA)
-
-1. Menú → **Capturar plantillas** → categoría **Letra** o **Palabra** → tipo **Estática**.
-2. Coloca la seña quieta, con la mano bien visible.
-3. Escribe la etiqueta y pulsa **Guardar pose actual**. En **Palabra**, si la cámara ve a la persona, el JSON guarda también `pose` y `rostro`. En **Letra** esos campos quedan en `null`.
-
-### Dinámica (J, Ñ, Z… o una palabra con movimiento)
-
-1. Menú → **Capturar plantillas** → categoría **Letra** o **Palabra** → tipo **Dinámica**.
-2. Escribe la etiqueta.
-3. Pulsa **Seña con movimiento** (o mantén **Space**), haz el gesto y suelta.
-4. El archivo lleva `categoria`, `tipo: dinamico` y `secuencia`. En **Palabra**, cada fotograma puede traer `pose` y `rostro`. En **Letra** siguen en `null`.
-
-## Llevar las señas a otra computadora
-
-Mamatlatolli no trae un banco de fábrica ni una cuenta en la nube. Si ya capturaste en un equipo y quieres usar las mismas señas en otro, expórtalas e impórtalas.
-
-1. En el equipo donde están las señas: menú → **Biblioteca de señas** → **Exportar…**.
-2. Guarda el archivo (por omisión `senas-mamatlatolli.mamatlatolli`) y cópialo a la otra computadora.
-3. Allá: **Biblioteca de señas** → **Importar…** y elige ese archivo.
-
-Si el archivo trae una letra o palabra que ya existe en este equipo —el mismo nombre, y quieta o con movimiento igual que la tuya—, Mamatlatolli pregunta:
-
-- **Reemplazar las que ya tengo.** Esas señas pasan a ser las del archivo. Varias tomas de la misma seña se cambian juntas. El resto de la biblioteca no se borra.
-- **Solo agregar las nuevas.** No toca las que ya tienes.
-
-Si no hay coincidencias, las agrega sin preguntar. Un archivo dañado, incompleto o de una versión que esta copia no entiende se rechaza con un aviso en español y **no** modifica la biblioteca.
-
-En la terminal, sin ventana, la misma operación reemplaza las coincidencias si no dices lo contrario:
-
-```bash
-python -m innova.exportar senas.mamatlatolli
-python -m innova.importar senas.mamatlatolli
-python -m innova.importar senas.mamatlatolli --solo-nuevas
-```
-
-`--desde` y `--hacia` apuntan a otra carpeta si no quieres usar `datos/plantillas/`. Si el nombre termina en `.json`, el exportador escribe un solo archivo de texto con el mismo contenido.
-
-### Formato del archivo
-
-`.mamatlatolli` es un ZIP:
-
-| Pieza | Qué es |
-| --- | --- |
-| `manifiesto.json` | `formato` (`mamatlatolli-plantillas`), `version` del paquete (hoy `"1.0"`), `producto`, fecha `creado`, conteos, `idioma` (`lsm`), `nombre_idioma`, `idioma_glosa` (`es-MX`), `notas` y la lista `archivos`. |
-| `plantillas/*.json` | Cada seña, con el mismo esquema que `datos/plantillas/` (`version` de la muestra `"1.0"`). |
-
-`idioma` e `idioma_glosa` quedan en el archivo para un banco futuro de lenguas de señas. Hoy no hay sincronización ni varias lenguas: solo se copian las señas locales.
-
-Un paquete `"1.0"` puede traer campos de más; Mamatlatolli los ignora. Otra `version` del paquete se rechaza hasta que el programa sepa leerla. El detalle del manifiesto está en [`docs/esquema-datos.md`](docs/esquema-datos.md).
-
-## Mini juego
-
-Menú → **Mini juego**. No hay una lista de palabras ni plantillas de fábrica: la partida usa las letras estáticas (`categoria: letra`, tipo estática) que guardaste en **Capturar plantillas**.
-
-1. Al entrar se ve el **récord** y el botón **Inicio**. La letra no aparece y el cronómetro no corre.
-2. **Inicio** muestra la letra y arranca el **cronómetro circular** de **5 segundos**, con la cuenta numérica y un tic-tac suave.
-3. Seña esa letra con la mano, quieta, frente a la cámara. Un parpadeo no cuenta: tiene que estabilizarse el mismo filtro que usa Abecedario.
-4. Si aciertas a tiempo, sumas según la rapidez: **1000** (menos de 1 s), **700** (de 1 s a menos de 3 s) o **500** (de 3 s a menos de 5 s). Suena el acierto, sale otra letra (sin repetir la anterior, si hay más de una) y el reloj vuelve a 5 segundos. Los puntos se acumulan.
-5. A los **5 segundos** sin acierto, o si la seña estable es otra letra, suena el error, el tic-tac se detiene y la partida vuelve al botón **Inicio**. **← Menú** o Esc regresan al menú; Q cierra Mamatlatolli. Si esa partida superó el récord guardado, suena una vez el récord nuevo.
-6. Solo se conserva el **récord** personal (`record_practica` en `datos/config.json`). Una puntuación más baja no lo reemplaza.
-
-Los efectos están en `assets/sonidos/` (WAV sintetizados en el propio proyecto, sin audio de terceros). En Windows se oyen con `winsound`, sin FFmpeg. En Linux y macOS hace falta `ffplay`, `paplay` o `aplay`. Si no hay salida de audio, Mini juego sigue igual, en silencio.
-
-Si todavía no hay letras estáticas, Mini juego lo dice en español y pide capturarlas antes.
-
-Recomendaciones:
-
-- Varias plantillas por seña (distancia, giro, luz).
-- Solo con **consentimiento** (`metadatos.consentimiento`).
-- Los JSON de `datos/plantillas/` no se suben al git.
-
-## Cómo funciona el reconocimiento
-
-1. **Modo.** Abecedario carga solo `categoria: "letra"`; Vocabulario solo `"palabra"`.
-2. **Landmarks.** MediaPipe Hands entrega 21 puntos (x, y, z) por mano. En Vocabulario, MediaPipe Pose entrega 33 puntos y Face Mesh 478 (`refine_landmarks=True`), con la misma versión del paquete (`mediapipe==0.10.14`, API `mp.solutions`).
-3. **Enrutado.** Si la muñeca se mueve con claridad en una ventana de ~0,6 s (0,4–0,8 s), se trata como seña dinámica. Si está estable, como estática. El botón *Seña con movimiento* o Space fuerza el modo dinámico.
-4. **Estático.** La mano se normaliza (muñeca al origen, palma ≈ 1, sin rotar) a un vector de 78 números. En palabras se suman la pose (caderas al origen, ancho de hombros ≈ 1) y un recorte del rostro (nariz al origen, distancia entre ojos ≈ 1: ojos, cejas y boca). Los pesos son mano 0,55, pose 0,30, rostro 0,15; si falta una parte, se reparte el peso entre las demás.
-5. **Dinámico (DTW).** Cada fotograma de letra suma la forma más la muñeca relativa al inicio del gesto (80 números). En palabras el fotograma añade pose y rostro; los bloques ausentes no entran en la distancia. Dynamic Time Warping alinea la secuencia con las plantillas `tipo: dinamico` de esa categoría.
-6. **Estabilidad.** Una seña estática solo se compromete con umbral + N consecutivos o M-de-K e histéresis. Una dinámica se compromete **al terminar** el gesto si la confianza basta; no se escribe un renglón por fotograma.
-7. Si no hay acuerdo, la UI muestra `detectando…` (hay mano) o `—` (no hay mano).
-
-## Teclas
-
-| Tecla | Acción |
-| --- | --- |
-| `Esc` | Vuelve al menú. En el menú, cierra Mamatlatolli |
-| `Q` | Cierra Mamatlatolli (no cierra si estás escribiendo) |
-| `Space` (mantener) | Grabar / reconocer una seña con movimiento |
-| Botón *← Menú* | Vuelve al menú principal (lo mismo que Esc fuera del menú) |
-| Botón *Reintentar cámara* | Volver a buscar un dispositivo si no se encontró |
-| Botón *Seña con movimiento* | Forzar grabación dinámica (clic para empezar y terminar) |
-
-## Apariencia (modo claro y oscuro)
-
-Mamatlatolli abre en **modo claro**. En **Configuración**, o con el control **Apariencia** del menú principal, se elige **Modo claro** o **Modo oscuro**. La ventana cambia al momento, sin cerrar el programa.
-
-La preferencia se guarda en `datos/config.json` (`"tema": "claro"` o `"tema": "oscuro"`) y se vuelve a aplicar al siguiente arranque. En el mismo archivo, `"record_practica"` guarda el récord de Mini juego (solo si la partida lo supera). En la app instalada de Windows ese archivo está en `%LOCALAPPDATA%\Mamatlatolli\config.json`. Los acentos siguen siendo naranja, lima e índigo, con tonos legibles sobre cada fondo.
-
-## Permisos de la cámara
-
-Si la ventana indica que **no se encontró una cámara**, casi siempre es un permiso del sistema o un dispositivo ocupado por otra app (Zoom, Teams, el navegador, etc.).
-
-- **Windows:** Configuración → Privacidad y seguridad → Cámara → permite el acceso para el escritorio. En desarrollo el programa aparece como Python; si lo instalaste con el Setup, el permiso es para **Mamatlatolli**.
-- **macOS:** Configuración del Sistema → Privacidad y seguridad → Cámara → activa el permiso para Terminal, VS Code o Python.
-- **Linux:** verifica que tu usuario esté en el grupo `video` y que ninguna otra aplicación tenga el dispositivo `/dev/video0` bloqueado.
-
-Cierra otras apps que usen la cámara e intenta de nuevo, o pulsa **Reintentar cámara**, o entra a **Modo demostración**.
-
-## Estructura del código
-
-```
-app.py                     Punto de entrada (también lo usa el .exe)
-empaquetado/               PyInstaller, Inno Setup y el script de build
-.github/workflows/         Instalador Windows (artifact en windows-latest)
-innova/
-  rutas.py                 Carpeta de datos: datos/ en desarrollo, AppData instalado
-  tema.py                  Paletas clara y oscura (naranja / lima / índigo) y logo
-  menu.py                  Destinos del menú (sin Tk)
-  pantallas.py             Menú, reconocimiento, práctica, captura, biblioteca, ajustes
-  practica.py              Mini juego: letras en 5 segundos, puntos por rapidez y récord
-  audio.py                 Efectos del mini juego (acierto, error, récord, tic-tac)
-  ui.py                    Ventana (CustomTkinter) y navegación
-  camara.py                Captura (cámara real o fuente demo)
-  detector.py              MediaPipe Hands + detector de demostración
-  esquema.py               JSON versionado: categoria letra|palabra + secuencia
-  cuerpo.py                MediaPipe Pose (33) y Face Mesh (478) para Vocabulario
-  caracteristicas.py       Normalización de mano, pose y rostro; fusión ponderada
-  dtw.py                   Dynamic Time Warping
-  movimiento.py            Detector de movimiento (auto-DTW)
-  ajustes.py               datos/config.json
-  plantillas.py            Leer/escribir/borrar y filtrar datos/plantillas/
-  paquete.py               Exportar e importar un archivo .mamatlatolli
-  exportar.py              python -m innova.exportar
-  importar.py              python -m innova.importar
-  estabilidad.py           Umbral + voto temporal + histéresis
-  reconocimiento.py        crear_reconocedor() / estático + predecir_dinamico()
-  overlay.py               Landmarks, conexiones y recuadro
-  pipeline.py              Une todo fotograma a fotograma
-  config.py                Textos, tamaños y umbrales (colores reexportados de tema)
-docs/esquema-datos.md      Esquema JSON (español)
-docs/empaquetado.md        Instalador Windows, datos de usuario y SmartScreen
-docs/menu-y-senas-dinamicas.md  Menú, captura DTW, auto vs botón
-datos/plantillas/          Plantillas JSON (locales, no se versionan)
-assets/logo.png            Logo oficial (PNG transparente). Si falta, el menú usa un placeholder
-assets/icono.png           Marca M + mano, icono de la ventana (PNG)
-assets/icono.ico           El mismo icono, multi-tamaño, para la barra de tareas en Windows
-```
+El mapa de carpetas está en [Cómo funciona — Estructura del código](docs/como-funciona.md#estructura-del-codigo).
 
 ## Hoja de ruta
 
-### Fase 1
+Hecho en esta versión:
 
-- [x] Ventana de escritorio y cámara en vivo
-- [x] Detección de manos con overlay
-- [x] Marcador de reconocimiento (`detectando…` / `—`)
-- [x] Transcripción reciente
-- [x] Mensaje claro si no hay cámara
+- Ventana, cámara y detección de manos.
+- Plantillas quietas, comparación de formas y filtro para no aceptar un parpadeo.
+- Menú, señas con movimiento y comparación del recorrido.
+- Abecedario y Vocabulario separados.
+- Cuerpo y rostro en Vocabulario.
+- Exportar e importar la biblioteca, e instalador de Windows.
 
-### Fase 2a
+Lo que sigue es capturar palabras en **Capturar plantillas**, con consentimiento. No vienen de fábrica ni hay una lista que el programa recorra.
 
-- [x] Esquema JSON versionado (mano + pose/rostro reservados + secuencia)
-- [x] Captura de plantillas estáticas
-- [x] Matching por vectores normalizados (euclidiana / coseno)
-- [x] Filtro de estabilidad (umbral, N consecutivos / M-de-K, histéresis)
+El detalle de fases está en [Menú, Abecedario y Vocabulario](docs/menu-y-senas-dinamicas.md#hoja-de-ruta).
 
-### Fase 2b
+## Documentación
 
-- [x] Menú principal y pantallas (captura, biblioteca, configuración, demo, acerca de)
-- [x] Captura de secuencias `tipo: dinamico`
-- [x] `predecir_dinamico()` con DTW
-- [x] Enrutado automático estático vs dinámico + botón/Space
+| Documento | Qué es |
+| --- | --- |
+| [Guía de usuario](docs/guia-usuario.md) | Demo escolar: instalar, capturar, jugar, exportar. |
+| [Cómo funciona](docs/como-funciona.md) | De la cámara al texto, con diagrama y mapa del código. |
+| [Empaquetado](docs/empaquetado.md) | Setup, artifact, datos de usuario, construir en Windows. |
+| [Menú y señas dinámicas](docs/menu-y-senas-dinamicas.md) | Tarjetas, DTW, automático frente al botón, mini juego. |
+| [Esquema de datos](docs/esquema-datos.md) | JSON de cada seña y el paquete `.mamatlatolli`. |
 
-### Fase 3 (esta versión)
+## Licencia y privacidad
 
-- [x] Abecedario y Vocabulario como tarjetas separadas (sin «Iniciar reconocimiento»)
-- [x] Campo `categoria: "letra" | "palabra"` con migración a letra
-- [x] Captura y biblioteca con filtro letra / palabra
-- [x] Reconocimiento aislado por categoría
-- [x] MediaPipe Pose y Face Mesh en vivo para `categoria: "palabra"`
-- [x] Pose y rostro en el matching estático y en el DTW (con degradación si faltan)
-- [x] Overlay ligero de esqueleto y cara en Vocabulario
-
-### Primer conjunto de palabras
-
-Todavía no hay un banco descargado ni una red entrenada: las palabras se capturan en **Capturar plantillas** (categoría Palabra), con consentimiento y varias tomas. Conviene confirmar con una persona señalante cuáles se sostienen (estáticas) y cuáles recorren un trayecto (dinámicas). Pose y rostro ayudan cuando la seña usa cabeza, torso o boca.
-
-- [ ] Saludos y cortesía: HOLA, GRACIAS, POR FAVOR, BUENOS DÍAS
-- [ ] Respuestas: SÍ, NO
-- [ ] Casa y necesidades: AGUA, COMER, CASA, FAMILIA
-
-## Pruebas rápidas (sin ventana)
-
-```bash
-python -m unittest discover -s tests -v
-```
-
-## Solución de problemas
-
-**`ModuleNotFoundError: No module named 'cv2'` (o `mediapipe`, `customtkinter`)**  
-No está activado el entorno virtual o faltó `pip install -r requirements.txt`.
-
-**La ventana no abre en Linux**  
-Instala `python3-tk` y comprueba que hay un display gráfico.
-
-**MediaPipe tarda la primera vez**  
-Es normal: carga el modelo de manos. Vocabulario carga además la pose y la malla facial, que ya vienen en el paquete de MediaPipe. Los siguientes arranques son más rápidos. Si pose o rostro no arrancan, la palabra se reconoce con la mano y el JSON deja esos campos en `null`.
-
-**El video se ve al revés (como en un espejo)**  
-Es intencional: la vista espejo se siente más natural, como una videollamada.
-
-**Todo el tiempo aparece `detectando…`**  
-Aún no hay plantillas, o la pose/trayectoria no se parece a ninguna. Captura otra vez. La *estimación instantánea* muestra qué plantilla va ganando.
-
-**Vocabulario dice que no hay plantillas**  
-Aún no hay JSON con `categoria: "palabra"`. En Capturar plantillas elige *Palabra* y guarda al menos una.
-
-**Las señas con movimiento no se reconocen**  
-Tienen que existir plantillas **dinámicas** de esa categoría. En Capturar plantillas elige *Dinámica* y graba el gesto. Si el automático no dispara, usa *Seña con movimiento* o sube la sensibilidad en Configuración.
-
-**Guardar plantilla dice que no hay mano / seña corta**  
-Espera el overlay. En dinámicas, mantén el botón durante todo el gesto (mínimo ~6 fotogramas).
-
-## Licencia y uso
-
-Código de un prototipo académico. Úsalo para aprender; respeta la privacidad de las personas que aparezcan frente a la cámara y no guardes plantillas sin consentimiento.
+Código de un prototipo académico, para aprender. La cámara se usa en el momento; las plantillas se quedan en la computadora de quien las capturó. Pide consentimiento antes de grabar a una persona —en Vocabulario la captura puede incluir rostro y torso— y no repartas esas señas sin permiso.

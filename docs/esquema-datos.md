@@ -1,6 +1,10 @@
 # Esquema de datos de Mamatlatolli
 
-Las plantillas y las futuras secuencias se guardan como JSON versionado
+El uso diario está en la [guía de usuario](guia-usuario.md) y el recorrido
+de la cámara al texto en [cómo funciona](como-funciona.md). Aquí va el
+formato de cada seña y del paquete para llevarlas a otra computadora.
+
+Las plantillas estáticas y las secuencias dinámicas se guardan como JSON versionado
 (`version: "1.0"`). Un mismo formato sirve para:
 
 - una **muestra estática** (una pose);

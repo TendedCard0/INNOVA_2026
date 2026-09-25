@@ -1,7 +1,9 @@
 # Menú, Abecedario y Vocabulario en Mamatlatolli
 
-Este documento describe el menú principal, la separación **letra /
-palabra** y cómo se elige entre matching estático y **DTW**.
+Detalle técnico del menú, de la separación **letra / palabra** y de cómo se
+elige entre matching estático y **DTW**. Para la demo en el salón, empieza
+por la [guía de usuario](guia-usuario.md). El recorrido general está en
+[cómo funciona](como-funciona.md).
 
 El programa se llama **Mamatlatolli**. El uso diario son dos modos:
 
@@ -13,7 +15,8 @@ El programa se llama **Mamatlatolli**. El uso diario son dos modos:
 
 ## Menú principal
 
-Al abrir `python app.py` aparece el menú (español), con el logo oficial
+Al abrir Mamatlatolli —el acceso directo del Setup, o `python app.py` en
+desarrollo— aparece el menú (español), con el logo oficial
 (`assets/logo.png`) centrado arriba —o un marco placeholder si el archivo
 no está— y ocho tarjetas. El PNG ya incluye el nombre y «Comunicación sin
 barreras.», así que el menú no repite ese título ni el subtítulo de LSM.
@@ -60,8 +63,9 @@ abre Abecedario sin cámara aunque no hayas pasado `--demo`.
 ## Mini juego
 
 **Mini juego** no enseña un vocabulario ni trae palabras precargadas. Toma las
-plantillas estáticas de `categoria: "letra"` que ya están en
-`datos/plantillas/`. Al abrir el modo se ve el récord y el botón **Inicio**:
+plantillas estáticas de `categoria: "letra"` de la biblioteca de este equipo
+(`datos/plantillas/` en desarrollo; `%LOCALAPPDATA%\Mamatlatolli\plantillas`
+si se instaló en Windows). Al abrir el modo se ve el récord y el botón **Inicio**:
 la letra y los **5 segundos** arrancan solo al pulsarlo. El tiempo se ve en
 un aro que se vacía, en la cuenta numérica y en un tic-tac suave.
 
@@ -93,7 +97,7 @@ quieta.
 2. Elige **Letra** o **Palabra**.
 3. Elige **Estática** o **Dinámica**.
 4. Escribe la etiqueta (`A`, `Ñ`, `HOLA`…).
-5. Estática: pose quieta → *Guardar pose actual*.
+5. Estática: pose quieta → **Guardar seña**.
    Dinámica: *Seña con movimiento* o **Space**, haz el gesto y suelta.
 6. El JSON lleva `categoria`, `tipo` y, si es dinámica, `secuencia`.
    En **Palabra**, `pose` y `rostro` se llenan cuando la cámara ve a la persona
@@ -156,6 +160,10 @@ Abecedario no carga estos grafos.
 Detalle del JSON: [`esquema-datos.md`](esquema-datos.md).
 
 ## Primer conjunto de palabras
+
+Mamatlatolli no trae estas palabras ni las presenta en orden. La lista de
+abajo es una idea para capturar después, con una persona señalante: no es
+una lista guiada dentro del programa.
 
 No hay un corpus que descargar. El primer banco se captura a mano, con
 consentimiento, en **Capturar plantillas → Palabra**. Confirmar con una

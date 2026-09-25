@@ -1,5 +1,10 @@
 # Empaquetar Mamatlatolli para Windows
 
+Si vas a instalar Mamatlatolli para una demo, la [guía de usuario](guia-usuario.md)
+resume los pasos. Aquí está el detalle de construcción, del artifact y de
+dónde quedan las señas. Cómo encaja el instalador en el programa está en
+[cómo funciona](como-funciona.md#donde-quedan-las-senas).
+
 Mamatlatolli se entrega como un **instalador** `Mamatlatolli-Setup.exe`. Quien lo ejecuta instala el programa, lo abre desde el menú Inicio o el escritorio, y lo desinstala desde Configuración de Windows → Aplicaciones. El icono del Setup, de la ventana y de los accesos directos es `assets/icono.ico`.
 
 Hay además un ZIP portable (`Mamatlatolli-portable.zip`). Es un extra: no sustituye al instalador.
