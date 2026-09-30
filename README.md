@@ -8,7 +8,7 @@
 
 No trae un banco de señas ni una red entrenada. Cada equipo guarda las suyas.
 
-Proyecto estudiantil — Instituto Tecnológico de San Juan del Río.
+Proyecto estudiantil para la competencia de INNOVATEC 2026 — Instituto Tecnológico de San Juan del Río.
 
 ## Empieza aquí
 
