@@ -20,6 +20,7 @@ de esa seña se reemplazan o se conservan juntas.
 
 from __future__ import annotations
 
+import base64
 import json
 import zipfile
 from dataclasses import dataclass
@@ -28,16 +29,20 @@ from pathlib import Path
 from typing import Any
 
 from innova import textos
-from innova.config import NOMBRE_PRODUCTO
+from innova.config import NOMBRE_PRODUCTO, RUTA_PLANTILLAS
 from innova.esquema import (
     CATEGORIA_LETRA,
     CATEGORIA_PALABRA,
+    MAX_BYTES_IMAGEN_APOYO,
     ErrorEsquema,
+    ImagenApoyo,
     MuestraLSM,
+    archivo_apoyo_permitido,
     muestra_desde_dict,
     normalizar_categoria,
     normalizar_etiqueta,
 )
+from innova.imagen_apoyo import leer_jpeg, materializar_imagen
 from innova.plantillas import (
     asegurar_directorio,
     cargar_plantillas_con_errores,
@@ -158,7 +163,8 @@ def exportar_biblioteca(
     idioma_glosa: str = IDIOMA_GLOSA_POR_OMISION,
 ) -> ResultadoExportacion:
     """Guarda la biblioteca en ``.mamatlatolli`` o, si el nombre termina en ``.json``, en un solo JSON."""
-    muestras, no_leidas = _recolectar(directorio)
+    carpeta = Path(directorio) if directorio is not None else Path(RUTA_PLANTILLAS)
+    muestras, no_leidas = _recolectar(carpeta)
     if not muestras:
         raise ErrorPaquete(textos.MENSAJE_EXPORTAR_VACIO)
     manifiesto = _manifiesto(
@@ -173,11 +179,11 @@ def exportar_biblioteca(
     try:
         ruta.parent.mkdir(parents=True, exist_ok=True)
         if ruta.suffix.lower() == ".json":
-            _escribir_json(ruta, manifiesto, muestras)
+            _escribir_json(ruta, manifiesto, muestras, carpeta)
         else:
             if ruta.suffix.lower() != EXTENSION_PAQUETE:
                 ruta = ruta.with_suffix(EXTENSION_PAQUETE)
-            _escribir_zip(ruta, manifiesto, muestras)
+            _escribir_zip(ruta, manifiesto, muestras, carpeta)
     except OSError as exc:
         raise ErrorPaquete(textos.MENSAJE_NO_SE_PUDO_GUARDAR_ARCHIVO) from exc
     return ResultadoExportacion(
@@ -254,6 +260,7 @@ def aplicar_importacion(
             eliminar_plantilla(ruta)
         for muestra in a_escribir:
             _preparar_muestra(muestra)
+            materializar_imagen(muestra, destino)
             guardar_plantilla(muestra, destino)
     except OSError as exc:
         raise ErrorPaquete(textos.MENSAJE_NO_SE_PUDO_ACTUALIZAR) from exc
@@ -328,18 +335,66 @@ def _nombre_en_paquete(indice: int, muestra: MuestraLSM) -> str:
     return f"{CARPETA_PLANTILLAS}/{indice:04d}_{seguro}_{muestra.categoria}_{muestra.tipo}.json"
 
 
-def _escribir_zip(ruta: Path, manifiesto: ManifiestoPaquete, muestras: list[MuestraLSM]) -> None:
+def _escribir_zip(
+    ruta: Path,
+    manifiesto: ManifiestoPaquete,
+    muestras: list[MuestraLSM],
+    carpeta: Path,
+) -> None:
     nombres = [_nombre_en_paquete(i, muestra) for i, muestra in enumerate(muestras, start=1)]
     texto_manifiesto = _dumps(manifiesto.a_dict(archivos=nombres))
     with zipfile.ZipFile(ruta, "w", compression=zipfile.ZIP_DEFLATED) as archivo:
         archivo.writestr(NOMBRE_MANIFIESTO, texto_manifiesto)
+        ya: set[str] = set()
         for nombre, muestra in zip(nombres, muestras, strict=True):
-            archivo.writestr(nombre, _dumps(muestra.a_dict()))
+            pieza, foto = _pieza_paquete(muestra, carpeta, incrustar=False)
+            archivo.writestr(nombre, _dumps(pieza))
+            if foto is None:
+                continue
+            miembro = f"{CARPETA_PLANTILLAS}/{foto[0]}"
+            if miembro in ya:
+                continue
+            ya.add(miembro)
+            archivo.writestr(miembro, foto[1])
 
 
-def _escribir_json(ruta: Path, manifiesto: ManifiestoPaquete, muestras: list[MuestraLSM]) -> None:
-    datos = manifiesto.a_dict(plantillas=[muestra.a_dict() for muestra in muestras])
+def _escribir_json(
+    ruta: Path,
+    manifiesto: ManifiestoPaquete,
+    muestras: list[MuestraLSM],
+    carpeta: Path,
+) -> None:
+    piezas = [_pieza_paquete(muestra, carpeta, incrustar=True)[0] for muestra in muestras]
+    datos = manifiesto.a_dict(plantillas=piezas)
     ruta.write_text(_dumps(datos), encoding="utf-8")
+
+
+def _pieza_paquete(
+    muestra: MuestraLSM,
+    carpeta: Path,
+    *,
+    incrustar: bool,
+) -> tuple[dict[str, Any], tuple[str, bytes] | None]:
+    """Dict de la seña y, si hay foto legible, ``(ruta relativa, jpeg)``.
+
+    Si el JPEG no está, la seña viaja sin foto. El paquete sigue siendo
+    versión 1.0: la foto es un campo opcional.
+    """
+    datos = muestra.a_dict()
+    imagen = muestra.imagen_apoyo
+    if imagen is None:
+        return datos, None
+    rel = archivo_apoyo_permitido(imagen.archivo)
+    crudo = imagen.datos if imagen.datos else (leer_jpeg(carpeta, rel) if rel else None)
+    if rel is None or not crudo:
+        datos.pop("imagen_apoyo", None)
+        return datos, None
+    bloque: dict[str, Any] = {"archivo": rel}
+    if incrustar:
+        bloque["formato"] = "jpeg"
+        bloque["datos"] = base64.b64encode(crudo).decode("ascii")
+    datos["imagen_apoyo"] = bloque
+    return datos, (rel, crudo)
 
 
 def _dumps(datos: dict[str, Any]) -> str:
@@ -372,6 +427,7 @@ def _leer_zip(bruto: bytes) -> PaquetePlantillas:
                 except (KeyError, OSError, UnicodeError, json.JSONDecodeError) as exc:
                     raise ErrorPaquete(textos.MENSAJE_SENA_ILEGIBLE) from exc
                 muestras.append(_muestra_de_paquete(pieza))
+            _adjuntar_fotos_zip(archivo, originales, muestras)
     except ErrorPaquete:
         raise
     except (zipfile.BadZipFile, OSError) as exc:
@@ -471,6 +527,40 @@ def _miembro_permitido(nombre: str) -> str:
     if any(parte == ".." for parte in partes):
         raise ErrorPaquete(textos.MENSAJE_PAQUETE_INCOMPLETO)
     return "/".join(partes)
+
+
+def _adjuntar_fotos_zip(
+    archivo: zipfile.ZipFile,
+    originales: dict[str, str],
+    muestras: list[MuestraLSM],
+) -> None:
+    """Copia el JPEG del ZIP a la muestra. Si falta, la seña se importa sin foto."""
+    for muestra in muestras:
+        imagen = muestra.imagen_apoyo
+        if imagen is None or imagen.datos:
+            continue
+        rel = archivo_apoyo_permitido(imagen.archivo)
+        if rel is None:
+            muestra.imagen_apoyo = None
+            continue
+        miembro = f"{CARPETA_PLANTILLAS}/{rel}"
+        origen = originales.get(miembro)
+        if origen is None:
+            muestra.imagen_apoyo = None
+            continue
+        try:
+            crudo = archivo.read(origen)
+        except OSError:
+            muestra.imagen_apoyo = None
+            continue
+        if not _jpeg_aceptable(crudo):
+            muestra.imagen_apoyo = None
+            continue
+        muestra.imagen_apoyo = ImagenApoyo(archivo=rel, datos=crudo)
+
+
+def _jpeg_aceptable(crudo: bytes) -> bool:
+    return bool(crudo) and len(crudo) <= MAX_BYTES_IMAGEN_APOYO and crudo[:2] == b"\xff\xd8"
 
 
 def _muestra_de_paquete(pieza: Any) -> MuestraLSM:

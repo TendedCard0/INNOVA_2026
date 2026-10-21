@@ -98,8 +98,39 @@ def inventario_plantillas(
 
 def eliminar_plantilla(ruta: Path) -> None:
     destino = Path(ruta)
+    archivo_imagen = ""
     if destino.is_file():
+        try:
+            muestra = cargar_muestra(destino)
+        except ErrorEsquema:
+            muestra = None
+        if muestra is not None and muestra.imagen_apoyo is not None:
+            archivo_imagen = muestra.imagen_apoyo.archivo
         destino.unlink()
+    if archivo_imagen:
+        _borrar_imagen_huerfana(destino.parent, archivo_imagen)
+
+
+def _borrar_imagen_huerfana(directorio: Path, archivo: str) -> None:
+    """Quita el JPEG si ninguna otra plantilla de esta carpeta lo usa."""
+    from innova.imagen_apoyo import ruta_imagen_segura
+
+    ruta = ruta_imagen_segura(directorio, archivo)
+    if ruta is None or not ruta.is_file():
+        return
+    buscado = archivo.replace("\\", "/")
+    for otro in listar_archivos(directorio):
+        try:
+            muestra = cargar_muestra(otro)
+        except ErrorEsquema:
+            continue
+        imagen = muestra.imagen_apoyo
+        if imagen is not None and imagen.archivo.replace("\\", "/") == buscado:
+            return
+    try:
+        ruta.unlink()
+    except OSError:
+        return
 
 
 def plantillas_estaticas(muestras: list[MuestraLSM]) -> list[MuestraLSM]:

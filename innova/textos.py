@@ -322,6 +322,45 @@ def texto_estado_manos(n_manos: int, fuente: str, *, camara_ausente: bool = Fals
     return f"Manos: {n_manos}   ·   {texto_fuente(fuente)}"
 
 
+def ayuda_foto_apoyo() -> str:
+    """Aviso visible al capturar una letra quieta, antes de marcar la casilla."""
+    return (
+        "Opcional. Si la marcas, se guarda una foto recortada de la cámara junto a esta letra, "
+        "en la carpeta de datos de este equipo. Mini juego la muestra en Fácil y Medio. "
+        "La seña ya se guarda con tu consentimiento; la foto también se queda en este equipo."
+    )
+
+
+def aviso_sin_foto() -> str:
+    return "Esta letra todavía no tiene foto de apoyo."
+
+
+def descripcion_nivel(clave: str) -> str:
+    """Qué cambia el nivel: tiempo y foto. Los segundos son los del diseño (8, 6 y 4)."""
+    from innova.practica import NIVEL_DIFICIL, NIVEL_FACIL, NIVEL_MEDIO, normalizar_nivel
+
+    nivel = normalizar_nivel(clave)
+    if nivel == NIVEL_FACIL:
+        return "8 segundos. La foto de apoyo se queda visible todo el turno."
+    if nivel == NIVEL_MEDIO:
+        return "6 segundos. La foto se ve unos 2 segundos y luego se oculta."
+    if nivel == NIVEL_DIFICIL:
+        return "4 segundos. Sin foto de apoyo."
+    return descripcion_nivel(NIVEL_FACIL)
+
+
+def mensaje_espera_nivel(clave: str) -> str:
+    return f"Elige el nivel y pulsa Inicio. {descripcion_nivel(clave)}"
+
+
+def texto_record(nivel_nombre: str, puntos: int) -> str:
+    return f"Récord en {nivel_nombre}: {puntos}"
+
+
+def texto_nivel_en_curso(nivel_nombre: str) -> str:
+    return f"Nivel: {nivel_nombre}"
+
+
 def ayuda_captura(*, palabra: bool, dinamica: bool) -> str:
     sujeto = "la palabra" if palabra else "la letra"
     extra = (
@@ -351,10 +390,26 @@ def mensaje_grabacion_descartada() -> str:
     return "No guardé nada: faltaba escribir la letra o la palabra."
 
 
-def mensaje_plantilla_guardada(etiqueta: str, *, palabra: bool, dinamica: bool) -> str:
+def mensaje_plantilla_guardada(
+    etiqueta: str,
+    *,
+    palabra: bool,
+    dinamica: bool,
+    con_foto: bool = False,
+    foto_no_pudo: bool = False,
+) -> str:
     que = "la palabra" if palabra else "la letra"
     como = " con movimiento" if dinamica else ""
-    return f"Listo. Guardé {que} {etiqueta.strip().upper()}{como}."
+    nombre = etiqueta.strip().upper()
+    if con_foto:
+        return (
+            f"Listo. Guardé {que} {nombre}{como} y una foto de cómo se hace. "
+            "La foto queda en este equipo."
+        )
+    base = f"Listo. Guardé {que} {nombre}{como}."
+    if foto_no_pudo:
+        return f"{base} No pude guardar la foto de apoyo; la seña sí quedó."
+    return base
 
 
 def mensaje_no_se_pudo_guardar() -> str:
@@ -380,11 +435,28 @@ def mensaje_acierto(puntos: int) -> str:
 
 
 def mensaje_espera_inicio() -> str:
-    return "Pulsa Inicio cuando estés listo. La letra y los 5 segundos empiezan en ese momento."
+    return mensaje_espera_nivel("facil")
 
 
-def mensaje_durante_ronda() -> str:
-    return "Menos de 1 segundo: 1000 puntos. Hasta 3 segundos: 700. Antes de que se acaben: 500."
+def mensaje_durante_ronda(duracion_s: float = 5.0) -> str:
+    """Tramos 1000 / 700 / 500 con la misma proporción que una ronda de 5 s."""
+    from innova.practica import umbrales_puntos
+
+    rapido, medio = umbrales_puntos(duracion_s)
+    return (
+        f"Menos de {_texto_segundos(rapido)}: 1000 puntos. "
+        f"De ahí a menos de {_texto_segundos(medio)}: 700. "
+        "Hasta que se acabe el tiempo: 500."
+    )
+
+
+def _texto_segundos(valor: float) -> str:
+    if abs(valor - round(valor)) < 1e-6:
+        n = int(round(valor))
+        unidad = "segundo" if n == 1 else "segundos"
+        return f"{n} {unidad}"
+    texto = f"{valor:.1f}"
+    return f"{texto} segundos"
 
 
 def banner_demo() -> str:

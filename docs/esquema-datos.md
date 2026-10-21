@@ -28,11 +28,12 @@ y se leen al arrancar el reconocedor. La validación está en `innova/esquema.py
 (`validar_muestra`, `muestra_desde_dict`, `MuestraLSM.a_dict()`).
 
 En desarrollo, `datos/` es la carpeta del repositorio (`datos/plantillas/`
-y `datos/config.json`, con el tema y `record_practica`). Con el instalador
-de Windows el programa no escribe en su carpeta de instalación: las señas,
-la configuración y el récord van a `%LOCALAPPDATA%\Mamatlatolli`
-(`plantillas\` y `config.json`). Exportar e importar usan esa misma
-biblioteca. El detalle está en [`empaquetado.md`](empaquetado.md).
+y `datos/config.json`, con el tema, el nivel de Mini juego y los récords).
+Con el instalador de Windows el programa no escribe en su carpeta de
+instalación: las señas, la configuración, el récord y las fotos de apoyo van
+a `%LOCALAPPDATA%\Mamatlatolli` (`plantillas\`, `plantillas\referencias\` y
+`config.json`). Exportar e importar usan esa misma biblioteca. El detalle
+está en [`empaquetado.md`](empaquetado.md).
 
 ## Campos de una muestra
 
@@ -47,6 +48,7 @@ biblioteca. El detalle está en [`empaquetado.md`](empaquetado.md).
 | `rostro` | objeto o `null` | Face Mesh, 478 puntos con iris (se aceptan 468). `null` en letras, o si no se ve la cara. |
 | `secuencia` | objeto o `null` | Obligatorio si `tipo` es `dinamico`. |
 | `metadatos` | objeto | Tiempo, fps, notas, consentimiento, origen. |
+| `imagen_apoyo` | objeto o ausente | Opcional. Recorte de la cámara para Mini juego. Si no está, la plantilla vieja sigue valiendo. |
 
 ### `mano`
 
@@ -130,6 +132,30 @@ devuelven `None` y la palabra se reconoce con la mano.
 | `notas` | string | Texto libre. |
 | `consentimiento` | boolean | Debe ser `true` si la seña es de una persona. |
 | `origen` | string | `"camara"`, `"demo"` u otro. |
+
+### `imagen_apoyo` (opcional)
+
+Solo en una letra estática, y solo si quien captura marcó **Guardar foto de
+apoyo**. La versión del JSON sigue siendo `"1.0"`: el bloque es opcional.
+Una plantilla sin este campo se lee igual que antes.
+
+```json
+"imagen_apoyo": {
+  "archivo": "referencias/a_20261021T120000.jpg"
+}
+```
+
+`archivo` es una ruta relativa a `datos/plantillas/` (o a
+`%LOCALAPPDATA%\Mamatlatolli\plantillas` en la copia instalada). El JPEG está
+en esa carpeta de datos, no junto al programa. No se aceptan rutas absolutas
+ni `..`. Si el bloque viene mal formado, Mamatlatolli ignora la foto y conserva
+la seña. Si el archivo no está en disco, Fácil y Medio avisan y el juego sigue.
+
+En la biblioteca guardada no va el JPEG dentro del JSON. En un paquete de un
+solo archivo `.json`, el mismo bloque puede traer `formato: "jpeg"` y `datos`
+en base64 para que la foto viaje sin carpeta aparte. Al importar, esos bytes
+se escriben otra vez en `referencias/` y el JSON local se queda solo con
+`archivo`.
 
 ## Ejemplo estático (letra)
 
@@ -222,6 +248,13 @@ JSON con los mismos campos y las muestras dentro de `plantillas`.
 Los campos que esta versión no conoce se ignoran, para poder sumar metadata
 sin romper los paquetes `"1.0"`. Una `version` nueva solo se acepta cuando
 Mamatlatolli la agregue a la lista de versiones compatibles.
+
+La foto de apoyo, si existe, viaja en el mismo paquete **versión 1.0**. En el
+ZIP va como `plantillas/referencias/<nombre>.jpg` y la seña apunta a
+`referencias/<nombre>.jpg`. Un paquete 1.0 sin esa foto se importa igual. Si
+el JPEG falta o no se puede leer, la seña entra y queda sin imagen: el paquete
+no se rechaza por eso. Una copia anterior de Mamatlatolli, que no conoce el
+campo, sigue importando las señas; al guardarlas de nuevo no conserva la foto.
 
 ### Señas que coinciden
 

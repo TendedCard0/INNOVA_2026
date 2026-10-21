@@ -1,12 +1,12 @@
 """Rutas de recursos y de datos de usuario de Mamatlatolli.
 
 En desarrollo (``python app.py`` o ``python -m innova``) no cambia nada:
-los recursos salen de ``assets/`` y las señas, la configuración y el récord
-siguen en ``datos/`` del repositorio.
+los recursos salen de ``assets/`` y las señas, la configuración, el récord
+y las fotos de apoyo de Mini juego siguen en ``datos/`` del repositorio.
 
 Empaquetado con PyInstaller, el programa puede vivir en una carpeta de solo
-lectura. Las plantillas, ``config.json`` y el récord de Mini juego se escriben
-en una carpeta del usuario:
+lectura. Las plantillas, ``config.json``, el récord de Mini juego y las fotos
+de ``plantillas/referencias/`` se escriben en una carpeta del usuario:
 
 - Windows: ``%LOCALAPPDATA%\\Mamatlatolli``
 - macOS: ``~/Library/Application Support/Mamatlatolli``

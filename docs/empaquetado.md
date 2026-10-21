@@ -20,7 +20,7 @@ Por omisión la instalación es **por usuario**. No hace falta ser administrador
 | Programa (exe, modelos, logo, sonidos) | `%LOCALAPPDATA%\Programs\Mamatlatolli` |
 | Señas, configuración y récord | `%LOCALAPPDATA%\Mamatlatolli` |
 
-Ejemplo: `C:\Users\ana\AppData\Local\Mamatlatolli\plantillas` y `C:\Users\ana\AppData\Local\Mamatlatolli\config.json` (`tema` y `record_practica`).
+Ejemplo: `C:\Users\ana\AppData\Local\Mamatlatolli\plantillas`, las fotos de apoyo en `plantillas\referencias` y `C:\Users\ana\AppData\Local\Mamatlatolli\config.json` (`tema`, `nivel_practica`, `records_practica` y `record_practica`).
 
 Esa segunda carpeta es escribible. El programa no guarda plantillas dentro de su carpeta de instalación, así que sigue funcionando si algún día se instala en `Archivos de programa`. Exportar e importar (Biblioteca de señas, o `python -m innova.exportar` / `python -m innova.importar` en desarrollo) leen y escriben esa misma biblioteca. Los diálogos abren en Documentos para que el archivo `.mamatlatolli` quede fácil de copiar a otra computadora.
 

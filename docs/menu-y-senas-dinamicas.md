@@ -29,7 +29,7 @@ no se leería. Las ocho tarjetas:
 | --- | --- |
 | **Abecedario** | Cámara en vivo, solo letras (estáticas y dinámicas). |
 | **Vocabulario** | Cámara en vivo, solo palabras. Usa mano, pose y rostro. Si aún no hay plantillas de palabra, muestra un estado vacío en español. |
-| **Mini juego** | Letra estática al azar tras pulsar Inicio, cronómetro de 5 segundos y puntos por rapidez (1000 / 700 / 500). Solo letras que ya capturaste; si no hay, un aviso en español. |
+| **Mini juego** | Letra estática al azar tras pulsar Inicio. El nivel (Fácil 8 s, Medio 6 s, Difícil 4 s) cambia el reloj y si se ve la foto de apoyo. Puntos 1000 / 700 / 500, en proporción al tiempo. Récord por nivel. Solo letras que ya capturaste; si no hay, un aviso en español. |
 | **Capturar plantillas** | Guardar una pose o una trayectoria; eliges Letra o Palabra. |
 | **Biblioteca de señas** | Listar, filtrar (`letra` / `palabra` / `todas`), probar, borrar, exportar o importar un archivo `.mamatlatolli`. |
 | **Configuración** | Umbrales de confianza/estabilidad, sensibilidad al movimiento y apariencia (modo claro / modo oscuro). |
@@ -65,22 +65,41 @@ abre Abecedario sin cámara aunque no hayas pasado `--demo`.
 **Mini juego** no enseña un vocabulario ni trae palabras precargadas. Toma las
 plantillas estáticas de `categoria: "letra"` de la biblioteca de este equipo
 (`datos/plantillas/` en desarrollo; `%LOCALAPPDATA%\Mamatlatolli\plantillas`
-si se instaló en Windows). Al abrir el modo se ve el récord y el botón **Inicio**:
-la letra y los **5 segundos** arrancan solo al pulsarlo. El tiempo se ve en
-un aro que se vacía, en la cuenta numérica y en un tic-tac suave.
+si se instaló en Windows). Al abrir el modo se elige el nivel, se ve el récord
+de ese nivel y el botón **Inicio**: la letra y el reloj arrancan solo al
+pulsarlo. El tiempo se ve en un aro que se vacía, en la cuenta numérica y en
+un tic-tac suave. El último nivel queda en `datos/config.json` (`nivel_practica`).
+
+| Nivel | Tiempo | Foto de apoyo |
+| --- | --- | --- |
+| **Fácil** | 8 s | Visible todo el turno. |
+| **Medio** | 6 s | Visible unos 2 s al empezar cada letra; después se oculta. |
+| **Difícil** | 4 s | No se muestra. |
+
+Esos tiempos son fijos. La foto no viene de fábrica: se guarda, si se quiere,
+al capturar una letra estática (**Guardar foto de apoyo**). El archivo es un
+JPEG en `plantillas/referencias/`, dentro de la carpeta de datos del usuario,
+y la plantilla solo guarda la ruta. Si la letra no tiene foto, o el archivo
+ya no está, Fácil y Medio muestran un aviso breve y la partida sigue.
 
 - Acierto: la predicción **estable** (el mismo filtro de Abecedario, no la
-  estimación instantánea) es esa letra antes de los 5 s. Los puntos dependen
-  de la rapidez: **1000** si tarda menos de 1 s, **700** de 1 s a menos de 3 s,
-  **500** de 3 s a menos de 5 s. Suena el acierto y, sin otro botón, elige otra
-  letra —sin repetir la anterior si hay más de una— y vuelve a contar 5 s.
-  Los puntos se acumulan.
-- Fallo: se cumplen los 5 segundos, o la seña estable es otra letra. Suena el
+  estimación instantánea) es esa letra antes de que se acabe el reloj del
+  nivel. Los puntos siguen siendo **1000 / 700 / 500**. Los cortes se estiran
+  con la misma proporción que tenía la ronda de 5 s (1 s y 3 s, el 20 % y el
+  60 % del tiempo): Fácil 1.6 s y 4.8 s, Medio 1.2 s y 3.6 s, Difícil 0.8 s y
+  2.4 s. Al cumplirse el tiempo exacto ya no hay acierto. Suena el acierto y,
+  sin otro botón, elige otra letra —sin repetir la anterior si hay más de
+  una— y vuelve a contar el tiempo del nivel. En Medio, la foto vuelve a
+  asomarse esos 2 s. Los puntos se acumulan.
+- Fallo: se cumple el tiempo del nivel, o la seña estable es otra letra. Suena el
   error, se detiene el tic-tac y la partida vuelve al botón **Inicio**.
-  **← Menú** o Esc vuelven al menú; Q cierra Mamatlatolli. Si esa partida superó el récord guardado, suena una vez el récord nuevo.
-- Récord: en `datos/config.json`, la clave `record_practica` solo se
-  actualiza si la puntuación es mayor que la guardada. Ese momento suena una
-  sola vez, no en cada acierto.
+  **← Menú** o Esc vuelven al menú; Q cierra Mamatlatolli. Si esa partida superó el récord de ese nivel, suena una vez el récord nuevo.
+- Récord: uno por nivel, en `datos/config.json`, dentro de `records_practica`
+  (`facil`, `medio`, `dificil`). Solo sube el del nivel que se jugó. La clave
+  vieja `record_practica` se conserva como el máximo de los tres. Si el archivo
+  solo tenía `record_practica` (el juego de 5 s), ese número pasa a **Medio**
+  y el nivel recordado abre en Medio, para que la marca siga a la vista.
+  El sonido del récord suena una sola vez, no en cada acierto.
 - Sonidos: `assets/sonidos/*.wav`, sintetizados con numpy en `innova/audio.py`.
   Windows los reproduce con `winsound` (sin FFmpeg). Linux y macOS usan
   `ffplay`, `paplay` o `aplay`, fuera del hilo de la cámara. Si falta el
@@ -98,10 +117,17 @@ quieta.
 3. Elige **Estática** o **Dinámica**.
 4. Escribe la etiqueta (`A`, `Ñ`, `HOLA`…).
 5. Estática: pose quieta → **Guardar seña**.
-   Dinámica: *Seña con movimiento* o **Space**, haz el gesto y suelta.
+   En una **letra** estática puedes marcar **Guardar foto de apoyo**. El texto
+   de la casilla dice que se guarda una imagen en este equipo. Es opcional y
+   usa el mismo consentimiento de la captura. Dinámica: *Seña con movimiento*
+   o **Space**, haz el gesto y suelta. La foto no se ofrece en palabras ni en
+   señas con movimiento.
 6. El JSON lleva `categoria`, `tipo` y, si es dinámica, `secuencia`.
    En **Palabra**, `pose` y `rostro` se llenan cuando la cámara ve a la persona
    (también en cada fotograma de una dinámica). En **Letra** quedan en `null`.
+   Si hubo foto, el JSON suma `imagen_apoyo.archivo` (ruta relativa
+   `referencias/….jpg`). Sin esa casilla, el campo no va: las plantillas viejas
+   siguen siendo válidas.
 
 Una grabación dinámica necesita al menos 6 fotogramas con mano.
 

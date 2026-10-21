@@ -61,8 +61,9 @@ Haz esta secuencia la primera vez. Si la biblioteca está vacía, Abecedario, Vo
 3. En **¿Quieta o con movimiento?** deja **Estática**.
 4. Coloca la seña quieta, con la mano bien visible. Cuando el programa ve la mano, puedes guardar.
 5. Escribe la etiqueta (por ejemplo `A`) y pulsa **Guardar seña**.
+6. Si quieres, marca **Guardar foto de apoyo** antes de guardar. Es opcional. Se guarda un recorte de la cámara junto a esa letra, en la carpeta de datos de este equipo, con el mismo consentimiento de la captura. Mini juego la usa en Fácil y Medio. Si no la marcas, la letra se guarda igual.
 
-Conviene guardar varias tomas de la misma letra: un poco más cerca, un poco más lejos, con otro giro de la mano. Mini juego y Abecedario usan esas tomas.
+Conviene guardar varias tomas de la misma letra: un poco más cerca, un poco más lejos, con otro giro de la mano. Mini juego y Abecedario usan esas tomas. La foto, si la guardaste, es una sola ayuda visual: no sustituye a las tomas.
 
 ### 2. Pruébala en Abecedario
 
@@ -76,12 +77,13 @@ Si aún duda, verás **Buscando…**. Si no alcanza a ver la mano, verás **—*
 
 Menú → **Mini juego**.
 
-1. Ves el récord y el botón **Inicio**. La letra no sale hasta que lo pulses.
-2. **Inicio** muestra una letra quieta que ya capturaste y arranca un reloj de **5 segundos**.
-3. Seña esa letra y mantenla quieta. Si la lectura estable coincide a tiempo, sumas puntos y sale otra letra. Menos de 1 segundo: **1000**. De 1 segundo a menos de 3: **700**. De 3 segundos a menos de 5: **500**.
-4. Si se acaban los 5 segundos, o la seña estable es otra letra, la partida vuelve a **Inicio**. Solo se guarda el récord si esa partida lo superó.
+1. Elige el nivel y ves el récord de ese nivel. La letra no sale hasta que pulses **Inicio**.
+2. **Fácil** da **8 segundos** y deja visible la foto de apoyo todo el turno. **Medio** da **6 segundos** y muestra la foto solo unos **2 segundos**, al empezar cada letra. **Difícil** da **4 segundos** y no muestra foto. Mamatlatolli recuerda el último nivel que usaste.
+3. **Inicio** muestra una letra quieta que ya capturaste y arranca el reloj de ese nivel.
+4. Seña esa letra y mantenla quieta. Si la lectura estable coincide a tiempo, sumas puntos y sale otra letra. Los puntos siguen siendo **1000**, **700** y **500**, repartidos en la misma proporción del reloj: el tramo rápido es el primer 20 % del tiempo, el medio llega hasta el 60 %, y el resto, hasta que se acaba, vale 500. En Fácil eso es menos de 1.6 s, hasta 4.8 s, y el resto. En Medio, 1.2 s y 3.6 s. En Difícil, 0.8 s y 2.4 s.
+5. Si se acaba el tiempo del nivel, o la seña estable es otra letra, la partida vuelve a **Inicio**. Solo se guarda el récord de ese nivel, si esa partida lo superó.
 
-Mini juego no usa palabras ni señas con movimiento. Si todavía no hay letras quietas, la pantalla lo explica.
+Si la letra no tiene foto, Fácil y Medio muestran un aviso corto en lugar de la imagen y el juego sigue. Difícil no pide foto. Mini juego no usa palabras ni señas con movimiento. Si todavía no hay letras quietas, la pantalla lo explica. Un récord guardado antes de los niveles queda en **Medio**.
 
 ### Vocabulario, en breve
 
@@ -115,7 +117,7 @@ En Abecedario o Vocabulario, si la mano se mueve con claridad, Mamatlatolli comp
 - La cámara en vivo se ve en espejo, como una videollamada. Así es más fácil acomodar la seña.
 - Cierra otras apps que estén usando la cámara (videollamadas, el navegador) y, si hace falta, pulsa **Reintentar cámara**.
 - En Windows, el permiso de cámara está en Configuración → Privacidad y seguridad → Cámara. Con el Setup, el programa aparece como **Mamatlatolli**.
-- Pide consentimiento antes de grabar a alguien. En Vocabulario la captura puede incluir rostro y torso, no solo la mano. No compartas el archivo `.mamatlatolli` con personas que no deban ver esas señas.
+- Pide consentimiento antes de grabar a alguien. En Vocabulario la captura puede incluir rostro y torso, no solo la mano. Si marcas **Guardar foto de apoyo**, también se guarda una imagen recortada de la cámara en este equipo. No compartas el archivo `.mamatlatolli` con personas que no deban ver esas señas: si la foto iba incluida, viaja con el archivo.
 - Varias tomas de la misma seña aguantan mejor un cambio de distancia, de giro o de luz.
 
 ## Si algo no cuadra
@@ -127,6 +129,7 @@ En Abecedario o Vocabulario, si la mano se mueve con claridad, Mamatlatolli comp
 | Todo el tiempo dice **Buscando…** | La mano se ve, pero no se parece lo bastante a una plantilla. Captura otra toma o seña más parecido al ejemplo guardado. |
 | La seña con movimiento no se lee | Tiene que existir una plantilla **Dinámica** de esa letra o palabra. Grábala otra vez, el gesto completo, y suelta al terminar. |
 | Vocabulario no tiene palabras | Elige **Palabra** al capturar. Las letras del abecedario no aparecen ahí. |
+| Fácil o Medio no muestran la foto | Esa letra se guardó sin **Guardar foto de apoyo**, o el archivo de la foto ya no está. La partida sigue; si quieres la imagen, captura otra toma de la letra con la casilla marcada. |
 
 ## Quiero ver cómo lo hace
 

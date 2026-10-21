@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 from innova.camara import Camara, CamaraNoDisponibleError
@@ -45,7 +46,29 @@ class TestPipelineDemo(unittest.TestCase):
                 self.assertIsNone(data["secuencia"])
                 self.assertEqual(len(data["mano"]["landmarks"]), 21)
                 self.assertTrue(data["metadatos"]["consentimiento"])
+                self.assertNotIn("imagen_apoyo", data)
                 self.assertEqual(pipeline.n_plantillas, 1)
+            finally:
+                pipeline.cerrar()
+
+    def test_guardar_foto_de_apoyo_es_opcional(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            pipeline = crear_pipeline(modo_demo=True, ruta_plantillas=tmp)
+            try:
+                self.assertIsNotNone(pipeline.procesar())
+                ruta = pipeline.guardar_plantilla("a", guardar_imagen=True)
+                data = json.loads(ruta.read_text(encoding="utf-8"))
+                self.assertEqual(data["etiqueta"], "A")
+                self.assertEqual(data["tipo"], "estatico")
+                self.assertTrue(data["metadatos"]["consentimiento"])
+                imagen = data.get("imagen_apoyo")
+                self.assertIsInstance(imagen, dict)
+                archivo = imagen["archivo"]
+                self.assertTrue(archivo.startswith("referencias/"))
+                self.assertNotIn("..", archivo)
+                jpeg = (Path(tmp) / archivo).read_bytes()
+                self.assertEqual(jpeg[:2], b"\xff\xd8")
+                self.assertNotIn("datos", imagen)
             finally:
                 pipeline.cerrar()
 

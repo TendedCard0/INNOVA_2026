@@ -21,7 +21,7 @@ Proyecto estudiantil para la competencia de INNOVATEC 2026 — Instituto Tecnol�
 - Menú en español: **Abecedario**, **Vocabulario**, **Mini juego**, **Capturar plantillas**, **Biblioteca de señas**, **Configuración**, **Modo demostración** y **Acerca de Mamatlatolli**.
 - Abecedario con las manos. Vocabulario suma cuerpo y rostro.
 - Señas quietas y señas con movimiento.
-- Mini juego de letras a contrarreloj, con récord en esa computadora.
+- Mini juego de letras a contrarreloj, con niveles Fácil, Medio y Difícil y un récord por nivel.
 - Exportar e importar la biblioteca en un archivo `.mamatlatolli`.
 - Modo claro y modo oscuro.
 

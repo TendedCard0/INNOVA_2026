@@ -9,7 +9,14 @@ from dataclasses import replace
 import customtkinter as ctk
 
 from innova import tema
-from innova.ajustes import Ajustes, cargar_ajustes, guardar_tema
+from innova.ajustes import (
+    Ajustes,
+    cargar_ajustes,
+    cargar_nivel_practica,
+    cargar_record_practica,
+    cargar_records_practica,
+    guardar_tema,
+)
 from innova.esquema import CATEGORIA_LETRA, CATEGORIA_PALABRA
 from innova.menu import (
     DESTINO_ABECEDARIO,
@@ -144,7 +151,8 @@ class VentanaMamatlatolli(ctk.CTk):
             self.mostrar_menu()
             return
         if destino == DESTINO_PRACTICA:
-            self.geometry("1120x820")
+            self.geometry("1180x920")
+            self._sincronizar_practica()
             self._cambiar(
                 PantallaPractica(
                     self._contenedor,
@@ -153,6 +161,7 @@ class VentanaMamatlatolli(ctk.CTk):
                     ajustes=self._ajustes,
                     on_volver=self.mostrar_menu,
                     on_record=self._fijar_record,
+                    on_nivel=self._fijar_nivel,
                 )
             )
             return
@@ -171,7 +180,7 @@ class VentanaMamatlatolli(ctk.CTk):
             )
             return
         if destino == DESTINO_CAPTURA:
-            self.geometry("1120x780")
+            self.geometry("1120x880")
             self._cambiar(
                 PantallaCaptura(
                     self._contenedor,
@@ -240,16 +249,47 @@ class VentanaMamatlatolli(ctk.CTk):
         destino = DESTINO_VOCABULARIO if categoria == CATEGORIA_PALABRA else DESTINO_ABECEDARIO
         self.ir_a(destino)
 
-    def _fijar_record(self, record: int) -> None:
-        self._ajustes = replace(self._ajustes, record_practica=int(record)).normalizado()
+    def _sincronizar_practica(self) -> None:
+        """El récord y el nivel viven en disco: la partida los escribe directo."""
+        records = cargar_records_practica()
+        self._ajustes = replace(
+            self._ajustes,
+            record_practica=cargar_record_practica(),
+            records_practica=records,
+            nivel_practica=cargar_nivel_practica(),
+        ).normalizado()
+
+    def _fijar_nivel(self, nivel: str) -> None:
+        self._ajustes = replace(self._ajustes, nivel_practica=nivel).normalizado()
+
+    def _fijar_record(self, record: int, nivel: str) -> None:
+        records = dict(self._ajustes.records_practica or {})
+        previo = 0
+        try:
+            previo = int(records.get(nivel, 0))
+        except (TypeError, ValueError):
+            previo = 0
+        records[nivel] = max(previo, int(record))
+        self._ajustes = replace(
+            self._ajustes,
+            records_practica=records,
+            record_practica=max(int(self._ajustes.record_practica), int(record), *records.values()),
+            nivel_practica=nivel,
+        ).normalizado()
 
     def _guardar_ajustes(self, ajustes: Ajustes) -> None:
         self._ajustes = ajustes
         self._vista_config = None
 
     def _ajustes_para_config(self) -> Ajustes:
+        self._sincronizar_practica()
         if self._vista_config is not None:
-            vista = self._vista_config
+            vista = replace(
+                self._vista_config,
+                record_practica=self._ajustes.record_practica,
+                records_practica=dict(self._ajustes.records_practica or {}),
+                nivel_practica=self._ajustes.nivel_practica,
+            ).normalizado()
             self._vista_config = None
             return vista
         return self._ajustes

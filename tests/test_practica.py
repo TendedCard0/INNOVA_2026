@@ -1,4 +1,4 @@
-"""Mini juego: puntos por rapidez, récord (solo el máximo) y el reloj de 5 segundos."""
+"""Mini juego: niveles, puntos por rapidez, récord por nivel y la foto de apoyo."""
 
 from __future__ import annotations
 
@@ -14,8 +14,10 @@ import numpy as np
 from innova.ajustes import (
     Ajustes,
     cargar_ajustes,
+    cargar_nivel_practica,
     cargar_record_practica,
     guardar_ajustes,
+    guardar_nivel_practica,
     guardar_record_practica,
     guardar_tema,
 )
@@ -23,25 +25,36 @@ from innova.camara import esqueleto_mano_normalizado
 from innova.detector import ManoDetectada, Punto
 from innova.esquema import (
     FotogramaSecuencia,
+    ImagenApoyo,
     mano_desde_deteccion,
     muestra_dinamica_desde_fotogramas,
     muestra_estatica_desde_mano,
 )
 from innova.estabilidad import FiltroEstabilidad
+from innova.imagen_apoyo import guardar_jpeg_apoyo, recortar_mano_jpeg
 from innova.pipeline import PipelineVision
-from innova.plantillas import guardar_plantilla
+from innova.plantillas import eliminar_plantilla, guardar_plantilla
 from innova.practica import (
+    DURACION_DIFICIL_S,
+    DURACION_FACIL_S,
+    DURACION_MEDIO_S,
     MOTIVO_FALLA,
     MOTIVO_TIEMPO,
+    NIVEL_DIFICIL,
+    NIVEL_FACIL,
+    NIVEL_MEDIO,
     PUNTOS_LENTO,
     PUNTOS_MEDIO,
     PUNTOS_RAPIDO,
     PartidaPractica,
+    apoyo_visible,
     elegir_letra,
+    imagen_de_letra,
     letras_estaticas_disponibles,
     puntos_por_rapidez,
     record_tras_partida,
     sonidos_para,
+    umbrales_puntos,
 )
 from innova.reconocimiento import ReconocedorEstatico, ResultadoReconocimiento
 
@@ -440,6 +453,131 @@ class TestRecordPersistente(unittest.TestCase):
             self.assertEqual(bruto["tema"], "oscuro")
             self.assertEqual(bruto["record_practica"], 2)
 
+    def test_record_viejo_pasa_a_medio_y_cada_nivel_guarda_el_suyo(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            ruta = Path(tmp) / "config.json"
+            ruta.write_text(
+                json.dumps({"record_practica": 1500, "tema": "oscuro", "umbral_confianza": 0.66}),
+                encoding="utf-8",
+            )
+            self.assertEqual(cargar_nivel_practica(ruta), NIVEL_MEDIO)
+            self.assertEqual(cargar_record_practica(ruta), 1500)
+            self.assertEqual(cargar_record_practica(ruta, nivel=NIVEL_MEDIO), 1500)
+            self.assertEqual(cargar_record_practica(ruta, nivel=NIVEL_FACIL), 0)
+            self.assertEqual(cargar_record_practica(ruta, nivel=NIVEL_DIFICIL), 0)
+
+            self.assertEqual(guardar_record_practica(400, ruta, nivel=NIVEL_FACIL), 400)
+            self.assertEqual(guardar_record_practica(100, ruta, nivel=NIVEL_FACIL), 400)
+            self.assertEqual(cargar_record_practica(ruta, nivel=NIVEL_MEDIO), 1500)
+            self.assertEqual(guardar_nivel_practica(NIVEL_DIFICIL, ruta), NIVEL_DIFICIL)
+            bruto = json.loads(ruta.read_text(encoding="utf-8"))
+            self.assertEqual(bruto["tema"], "oscuro")
+            self.assertAlmostEqual(bruto["umbral_confianza"], 0.66, places=5)
+            self.assertEqual(bruto["nivel_practica"], NIVEL_DIFICIL)
+            self.assertEqual(bruto["records_practica"]["facil"], 400)
+            self.assertEqual(bruto["records_practica"]["medio"], 1500)
+            self.assertEqual(bruto["records_practica"]["dificil"], 0)
+            self.assertEqual(cargar_nivel_practica(ruta), NIVEL_DIFICIL)
+            self.assertEqual(cargar_ajustes(ruta).record_practica, 1500)
+
+    def test_archivo_sin_record_abre_en_facil(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            ruta = Path(tmp) / "config.json"
+            guardar_tema("oscuro", ruta)
+            self.assertEqual(cargar_nivel_practica(ruta), NIVEL_FACIL)
+            self.assertEqual(cargar_record_practica(ruta, nivel=NIVEL_MEDIO), 0)
+
+
+class TestNivelesYApoyo(unittest.TestCase):
+    def test_duraciones_y_tramos_proporcionales(self) -> None:
+        self.assertEqual((DURACION_FACIL_S, DURACION_MEDIO_S, DURACION_DIFICIL_S), (8.0, 6.0, 4.0))
+        for duracion, rapido, medio in ((8.0, 1.6, 4.8), (6.0, 1.2, 3.6), (4.0, 0.8, 2.4)):
+            corte_rapido, corte_medio = umbrales_puntos(duracion)
+            self.assertAlmostEqual(corte_rapido, rapido, places=5)
+            self.assertAlmostEqual(corte_medio, medio, places=5)
+            self.assertEqual(puntos_por_rapidez(corte_rapido - 0.01, duracion), PUNTOS_RAPIDO)
+            self.assertEqual(puntos_por_rapidez(corte_rapido, duracion), PUNTOS_MEDIO)
+            self.assertEqual(puntos_por_rapidez(corte_medio - 0.01, duracion), PUNTOS_MEDIO)
+            self.assertEqual(puntos_por_rapidez(corte_medio, duracion), PUNTOS_LENTO)
+            self.assertEqual(puntos_por_rapidez(duracion - 0.01, duracion), PUNTOS_LENTO)
+            self.assertEqual(puntos_por_rapidez(duracion, duracion), 0)
+
+    def test_la_foto_sigue_al_nivel_y_al_turno(self) -> None:
+        self.assertFalse(apoyo_visible(NIVEL_FACIL, 0.0, en_curso=False))
+        self.assertTrue(apoyo_visible(NIVEL_FACIL, 7.9, en_curso=True))
+        self.assertTrue(apoyo_visible(NIVEL_MEDIO, 0.0, en_curso=True))
+        self.assertTrue(apoyo_visible(NIVEL_MEDIO, 1.99, en_curso=True))
+        self.assertFalse(apoyo_visible(NIVEL_MEDIO, 2.0, en_curso=True))
+        self.assertFalse(apoyo_visible(NIVEL_DIFICIL, 0.1, en_curso=True))
+
+        medio = PartidaPractica(["A", "B"], duracion_s=6.0, nivel=NIVEL_MEDIO, rng=random.Random(1))
+        medio.iniciar(0.0)
+        self.assertTrue(medio.observar(0.4, None, comprometida=False).apoyo_visible)
+        self.assertFalse(medio.observar(2.0, None, comprometida=False).apoyo_visible)
+        letra = medio.letra
+        acierto = medio.observar(2.4, letra, comprometida=True)
+        self.assertTrue(acierto.acierto)
+        self.assertTrue(acierto.apoyo_visible)
+        self.assertEqual(acierto.puntos_obtenidos, PUNTOS_MEDIO)
+        self.assertAlmostEqual(acierto.restante_s, 6.0, places=5)
+
+        dificil = PartidaPractica(["Z"], duracion_s=4.0, nivel=NIVEL_DIFICIL)
+        dificil.iniciar(0.0)
+        justo = dificil.observar(3.9, "Z", comprometida=True)
+        self.assertTrue(justo.acierto)
+        self.assertFalse(justo.apoyo_visible)
+        self.assertEqual(justo.puntos_obtenidos, PUNTOS_LENTO)
+        tarde = PartidaPractica(["Z"], duracion_s=4.0, nivel=NIVEL_DIFICIL)
+        tarde.iniciar(0.0)
+        fin = tarde.observar(4.0, "Z", comprometida=True)
+        self.assertTrue(fin.terminado)
+        self.assertEqual(fin.motivo, MOTIVO_TIEMPO)
+        self.assertEqual(fin.puntuacion, 0)
+
+    def test_plantilla_vieja_sigue_y_la_foto_es_opcional(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            ruta = Path(tmp)
+            mano = _mano()
+            guardar_plantilla(muestra_estatica_desde_mano(mano, "A"), ruta)
+            self.assertEqual(letras_estaticas_disponibles(ruta), ["A"])
+            self.assertIsNone(imagen_de_letra("A", ruta))
+
+            frame = np.zeros((96, 96, 3), dtype=np.uint8)
+            frame[30:70, 30:70] = (20, 40, 200)
+            jpeg = recortar_mano_jpeg(frame, mano)
+            self.assertIsNotNone(jpeg)
+            assert jpeg is not None
+            rel = guardar_jpeg_apoyo(jpeg, "B", ruta, "20261021T000000")
+            self.assertIsNotNone(rel)
+            assert rel is not None
+            self.assertTrue(rel.startswith("referencias/"))
+            self.assertFalse(Path(rel).is_absolute())
+            guardar_plantilla(
+                muestra_estatica_desde_mano(mano, "B", imagen_apoyo=ImagenApoyo(archivo=rel)),
+                ruta,
+            )
+            self.assertEqual(letras_estaticas_disponibles(ruta), ["A", "B"])
+            foto = imagen_de_letra("B", ruta)
+            self.assertIsNotNone(foto)
+            assert foto is not None
+            self.assertTrue(foto.is_file())
+            self.assertEqual(foto.read_bytes()[:2], b"\xff\xd8")
+            self.assertTrue(str(foto).startswith(str(ruta)))
+
+            guardar_plantilla(
+                muestra_estatica_desde_mano(
+                    mano,
+                    "B",
+                    imagen_apoyo=ImagenApoyo(archivo=rel),
+                ),
+                ruta,
+            )
+            eliminar_plantilla(next(ruta.glob("B_*.json")))
+            self.assertTrue(foto.is_file())
+            for sobrante in ruta.glob("B_*.json"):
+                eliminar_plantilla(sobrante)
+            self.assertFalse(foto.is_file())
+
 
 class TestGanchoEstatico(unittest.TestCase):
     def test_solo_estatico_no_graba_y_el_filtro_se_reinicia(self) -> None:
@@ -553,16 +691,18 @@ class TestPantallaPractica(unittest.TestCase):
                 self.assertEqual(pantalla.btn_inicio.cget("text"), "Inicio")
                 self.assertFalse(pantalla._partida.en_curso)
                 self.assertFalse(audio.reloj.activo)
-                self.assertEqual(pantalla.lbl_tiempo.cget("text"), "5.0 s")
+                self.assertEqual(pantalla.lbl_tiempo.cget("text"), "8.0 s")
+                self.assertEqual(pantalla.seg_nivel.get(), "facil")
                 self.assertEqual(pantalla.lbl_puntos.cget("text"), "Puntos: 0")
                 self.assertIn("Récord", pantalla.lbl_record.cget("text"))
+                self.assertIn("Fácil", pantalla.lbl_record.cget("text"))
                 pantalla.btn_inicio.invoke()
                 self.assertTrue(pantalla._partida.en_curso)
                 self.assertTrue(audio.reloj.activo)
                 self.assertEqual(pantalla.btn_inicio.cget("text"), "Inicio")
                 self.assertFalse(pantalla.btn_inicio.winfo_ismapped())
                 self.assertIn(pantalla.lbl_letra.cget("text"), {"A", "L"})
-                self.assertEqual(pantalla.lbl_tiempo.cget("text"), "5.0 s")
+                self.assertEqual(pantalla.lbl_tiempo.cget("text"), "8.0 s")
                 pantalla.cerrar_pantalla()
                 self.assertFalse(audio.reloj.activo)
             finally:
