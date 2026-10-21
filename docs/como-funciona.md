@@ -52,7 +52,7 @@ El programa guarda la trayectoria: varios fotogramas, cada uno con la forma de l
 | Qué dibuja | Puntos y conexiones de la mano, y un recuadro | Lo mismo de la mano, más un esqueleto y puntos de la cara |
 | Si falta pose o rostro | No los usa | Sigue con la mano |
 
-Los dos modos comparten el mismo criterio de pose quieta frente a recorrido, y el mismo filtro. **Mini juego** es un caso aparte: solo letras estáticas, 5 segundos y puntos por rapidez. No usa DTW ni palabras. La partida está descrita en la [guía de usuario](guia-usuario.md#juega-una-ronda).
+Los dos modos comparten el mismo criterio de pose quieta frente a recorrido, y el mismo filtro. **Mini juego** es un caso aparte: solo letras estáticas, con nivel (8 s, 6 s o 4 s) y puntos por rapidez. No usa DTW ni palabras. La partida está descrita en la [guía de usuario](guia-usuario.md#juega-una-ronda).
 
 Si los modelos de pose o de rostro no llegan a cargar, Vocabulario no se detiene: reconoce con la mano y deja esos datos vacíos en la plantilla.
 
@@ -97,7 +97,8 @@ innova/
   menu.py                  Las ocho tarjetas y el texto de Acerca de
   pantallas.py             Menú, reconocimiento, mini juego, captura, biblioteca, ajustes
   ui.py                    Ventana y navegación
-  practica.py              Mini juego: 5 segundos, puntos y récord
+  practica.py              Mini juego: niveles, puntos y récord
+  imagen_apoyo.py          Foto opcional de la letra, en la carpeta de datos
   audio.py                 Sonidos del mini juego
   camara.py                Cámara real o video de ejemplo
   detector.py              Manos

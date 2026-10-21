@@ -236,8 +236,14 @@ class PipelineVision:
         tipo: str = "estatico",
         fotogramas: list[FotogramaSecuencia] | None = None,
         categoria: str = CATEGORIA_LETRA,
+        guardar_imagen: bool = False,
     ) -> Path:
-        """Guarda la mano actual (estático) o una secuencia (dinámico)."""
+        """Guarda la mano actual (estático) o una secuencia (dinámico).
+
+        ``guardar_imagen`` solo aplica a una letra estática: guarda, además,
+        un recorte del fotograma en la carpeta de datos. Si el recorte no
+        sale, la seña se guarda igual y sin foto.
+        """
         origen = "demo" if isinstance(self.fuente, FuenteDemo) else "camara"
         cat = normalizar_categoria(categoria)
         if tipo == "dinamico":
@@ -253,6 +259,9 @@ class PipelineVision:
         if self._ultimo is None or not self._ultimo.manos:
             raise ValueError("No hay una mano detectada para guardar. Coloca la seña frente a la cámara.")
         pose, rostro = self._cuerpo_para_guardar(cat)
+        imagen = None
+        if guardar_imagen and cat == CATEGORIA_LETRA and consentimiento:
+            imagen = self._foto_apoyo(etiqueta)
         muestra = muestra_estatica_desde_mano(
             self._ultimo.manos[0],
             etiqueta,
@@ -263,8 +272,28 @@ class PipelineVision:
             categoria=cat,
             pose=pose,
             rostro=rostro,
+            imagen_apoyo=imagen,
         )
         return self._registrar(muestra)
+
+    def _foto_apoyo(self, etiqueta: str):
+        """Recorte opcional. None si no hay fotograma usable: la seña igual se guarda."""
+        from innova.esquema import ImagenApoyo
+        from innova.imagen_apoyo import guardar_jpeg_apoyo, recortar_mano_jpeg
+
+        if self._ultimo is None or not self._ultimo.manos:
+            return None
+        jpeg = recortar_mano_jpeg(self._frame_crudo, self._ultimo.manos[0])
+        if not jpeg:
+            return None
+        reconocedor = self.reconocedor
+        directorio = getattr(reconocedor, "ruta_plantillas", None)
+        if directorio is None:
+            return None
+        rel = guardar_jpeg_apoyo(jpeg, etiqueta, Path(directorio))
+        if not rel:
+            return None
+        return ImagenApoyo(archivo=rel)
 
     def _guardar_dinamica(
         self,

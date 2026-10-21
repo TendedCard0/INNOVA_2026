@@ -54,6 +54,8 @@ class TestEsquemaEstatico(unittest.TestCase):
         self.assertIsNone(otra_vez["pose"])
         self.assertIsNone(otra_vez["rostro"])
         self.assertEqual(len(otra_vez["mano"]["caracteristicas"]), len(bruto["mano"]["caracteristicas"]))
+        self.assertNotIn("imagen_apoyo", bruto)
+        self.assertIsNone(recuperada.imagen_apoyo)
 
     def test_completa_caracteristicas_si_faltan(self) -> None:
         bruto = muestra_estatica_desde_mano(_mano(), "B").a_dict()
@@ -170,6 +172,35 @@ class TestCategoria(unittest.TestCase):
         self.assertEqual(bruto["etiqueta"], "HOLA")
         self.assertEqual(validar_muestra(bruto), [])
         self.assertEqual(muestra_desde_dict(bruto).categoria, "palabra")
+
+    def test_imagen_opcional_no_rompe_la_plantilla_vieja(self) -> None:
+        import base64
+
+        bruto = muestra_estatica_desde_mano(_mano(), "A").a_dict()
+        self.assertNotIn("imagen_apoyo", bruto)
+        self.assertEqual(validar_muestra(bruto), [])
+        bruto["imagen_apoyo"] = None
+        self.assertEqual(validar_muestra(bruto), [])
+        self.assertIsNone(muestra_desde_dict(bruto).imagen_apoyo)
+
+        bruto["imagen_apoyo"] = {"archivo": "../secreto.jpg"}
+        self.assertEqual(validar_muestra(bruto), [])
+        self.assertIsNone(muestra_desde_dict(bruto).imagen_apoyo)
+        self.assertEqual(muestra_desde_dict(bruto).etiqueta, "A")
+
+        jpeg = base64.b64encode(b"\xff\xd8\xff\xd9").decode("ascii")
+        bruto["imagen_apoyo"] = {
+            "archivo": "referencias/a_mano.jpg",
+            "formato": "jpeg",
+            "datos": jpeg,
+        }
+        self.assertEqual(validar_muestra(bruto), [])
+        recuperada = muestra_desde_dict(bruto)
+        self.assertIsNotNone(recuperada.imagen_apoyo)
+        assert recuperada.imagen_apoyo is not None
+        self.assertEqual(recuperada.imagen_apoyo.archivo, "referencias/a_mano.jpg")
+        self.assertEqual(recuperada.imagen_apoyo.datos, b"\xff\xd8\xff\xd9")
+        self.assertNotIn("datos", recuperada.a_dict()["imagen_apoyo"])
 
     def test_rechaza_categoria_invalida(self) -> None:
         bruto = muestra_estatica_desde_mano(_mano(), "A").a_dict()

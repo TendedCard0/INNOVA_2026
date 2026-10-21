@@ -13,7 +13,14 @@ import cv2
 from PIL import Image, ImageDraw
 
 from innova import tema
-from innova.ajustes import Ajustes, cargar_record_practica, guardar_ajustes, guardar_record_practica
+from innova.ajustes import (
+    Ajustes,
+    cargar_nivel_practica,
+    cargar_record_practica,
+    guardar_ajustes,
+    guardar_nivel_practica,
+    guardar_record_practica,
+)
 from innova.audio import AudioMiniJuego
 from innova.camara import CamaraNoDisponibleError
 from innova.config import (
@@ -42,9 +49,12 @@ from innova.pipeline import PipelineVision, crear_pipeline
 from innova.plantillas import eliminar_plantilla, filtrar_inventario, inventario_plantillas
 from innova.practica import (
     MENSAJE_SIN_LETRAS,
+    NIVELES_ORDEN,
     PartidaPractica,
     VistaPractica,
+    imagen_de_letra,
     letras_estaticas_disponibles,
+    nivel_de,
     sonidos_para,
     texto_fin,
 )
@@ -905,7 +915,7 @@ class PantallaReconocimiento(_PantallaConCamara):
 
 
 class PantallaPractica(_PantallaConCamara):
-    """Mini juego: letra estática, cronómetro de 5 s y puntos por rapidez."""
+    """Mini juego: nivel, letra estática, cronómetro y puntos por rapidez."""
 
     def __init__(
         self,
@@ -915,18 +925,29 @@ class PantallaPractica(_PantallaConCamara):
         indice_camara: int,
         ajustes: Ajustes,
         on_volver: Callable[[], None],
-        on_record: Callable[[int], None] | None = None,
+        on_record: Callable[[int, str], None] | None = None,
+        on_nivel: Callable[[str], None] | None = None,
         audio: AudioMiniJuego | None = None,
     ) -> None:
         self._on_record = on_record
+        self._on_nivel = on_nivel
         self._audio = audio if audio is not None else AudioMiniJuego()
         self._letras = letras_estaticas_disponibles()
         self._record_guardado = False
         self._record_anunciado = False
-        self._record_referencia = cargar_record_practica()
+        self._nivel = cargar_nivel_practica()
+        self._record_referencia = cargar_record_practica(nivel=self._nivel)
+        self._foto_clave = ""
+        self._foto_ref: ctk.CTkImage | None = None
         self._partida: PartidaPractica | None = None
         if self._letras:
-            self._partida = PartidaPractica(self._letras, record=self._record_referencia)
+            info = nivel_de(self._nivel)
+            self._partida = PartidaPractica(
+                self._letras,
+                record=self._record_referencia,
+                duracion_s=info.duracion_s,
+                nivel=info.clave,
+            )
         super().__init__(
             master,
             modo_demo=modo_demo,
@@ -950,26 +971,45 @@ class PantallaPractica(_PantallaConCamara):
             border_color=tema.COLOR_INDIGO,
         )
 
-        ctk.CTkLabel(
+        self._armar_selector_nivel(self.marco_juego)
+        self.lbl_pide = ctk.CTkLabel(
             self.marco_juego,
             text="Seña esta letra",
             font=ctk.CTkFont(size=13),
             text_color=tema.COLOR_TEXTO_MUDO,
-        ).pack(anchor="w", padx=20, pady=(18, 0))
+        )
+        self.lbl_pide.pack(anchor="w", padx=20, pady=(8, 0))
         self.lbl_letra = ctk.CTkLabel(
             self.marco_juego,
             text="—",
-            font=ctk.CTkFont(size=84, weight="bold"),
+            font=ctk.CTkFont(size=64, weight="bold"),
             text_color=tema.COLOR_ACENTO,
         )
         self.lbl_letra.pack(anchor="w", padx=20, pady=(0, 0))
-        self._crono_lado = 132
+        self.marco_apoyo = ctk.CTkFrame(
+            self.marco_juego,
+            fg_color=tema.COLOR_CAMPO,
+            corner_radius=12,
+            border_width=1,
+            border_color=tema.COLOR_BORDE,
+        )
+        self.lbl_apoyo = ctk.CTkLabel(self.marco_apoyo, text="")
+        self.lbl_apoyo.pack(padx=8, pady=8)
+        self.lbl_sin_foto = ctk.CTkLabel(
+            self.marco_juego,
+            text=textos.aviso_sin_foto(),
+            font=ctk.CTkFont(size=12),
+            text_color=tema.COLOR_TEXTO_MUDO,
+            wraplength=310,
+            justify="left",
+        )
+        self._crono_lado = 108
         self._crono_ref: ctk.CTkImage | None = None
         self.lbl_crono = ctk.CTkLabel(self.marco_juego, text="")
         self.lbl_crono.pack(anchor="w", padx=20, pady=(0, 0))
         self.lbl_tiempo = ctk.CTkLabel(
             self.marco_juego,
-            text="5.0 s",
+            text=f"{nivel_de(self._nivel).duracion_s:.1f} s",
             font=ctk.CTkFont(size=22, weight="bold"),
             text_color=tema.COLOR_TEXTO,
         )
@@ -983,7 +1023,7 @@ class PantallaPractica(_PantallaConCamara):
         self.lbl_puntos.pack(anchor="w", padx=20, pady=(0, 2))
         self.lbl_record = ctk.CTkLabel(
             self.marco_juego,
-            text="Récord: 0",
+            text=textos.texto_record(nivel_de(self._nivel).nombre, 0),
             font=ctk.CTkFont(size=16),
             text_color=tema.COLOR_TEXTO_MUDO,
         )
@@ -1048,11 +1088,15 @@ class PantallaPractica(_PantallaConCamara):
         ).pack(anchor="w", padx=20, pady=(0, 12))
         self.lbl_record_vacio = ctk.CTkLabel(
             self.marco_vacio,
-            text=f"Récord: {cargar_record_practica()}",
+            text=textos.texto_record(
+                nivel_de(self._nivel).nombre,
+                cargar_record_practica(nivel=self._nivel),
+            ),
             font=ctk.CTkFont(size=16),
             text_color=tema.COLOR_TEXTO,
         )
         self.lbl_record_vacio.pack(anchor="w", padx=20, pady=(0, 8))
+        self._armar_selector_nivel(self.marco_vacio)
 
         if self._partida is None:
             self.marco_vacio.pack(fill="both", expand=True)
@@ -1069,6 +1113,93 @@ class PantallaPractica(_PantallaConCamara):
             justify="left",
         )
         self.lbl_estado.pack(anchor="w", padx=20, pady=(8, 12))
+
+    def _armar_selector_nivel(self, parent: ctk.CTkFrame) -> None:
+        contenedor = parent
+        if parent is self.marco_juego:
+            contenedor = ctk.CTkFrame(parent, fg_color="transparent")
+            contenedor.pack(anchor="w", fill="x")
+            self.marco_nivel = contenedor
+        ctk.CTkLabel(
+            contenedor,
+            text="Nivel",
+            font=ctk.CTkFont(size=13),
+            text_color=tema.COLOR_TEXTO_MUDO,
+        ).pack(anchor="w", padx=20, pady=(12, 4))
+        selector = SelectorPastillas(
+            contenedor,
+            tuple((nivel_de(clave).nombre, clave) for clave in NIVELES_ORDEN),
+            self._nivel,
+            self._al_cambiar_nivel,
+            ancho=96,
+        )
+        selector.pack(anchor="w", padx=16, pady=(0, 4))
+        ayuda = ctk.CTkLabel(
+            contenedor,
+            text=textos.descripcion_nivel(self._nivel),
+            font=ctk.CTkFont(size=12),
+            text_color=tema.COLOR_TEXTO_MUDO,
+            wraplength=310,
+            justify="left",
+        )
+        ayuda.pack(anchor="w", padx=20, pady=(0, 4))
+        if parent is self.marco_juego:
+            self.seg_nivel = selector
+            self.lbl_nivel_ayuda = ayuda
+            self.lbl_nivel_activo = ctk.CTkLabel(
+                parent,
+                text=textos.texto_nivel_en_curso(nivel_de(self._nivel).nombre),
+                font=ctk.CTkFont(size=13, weight="bold"),
+                text_color=tema.COLOR_TEXTO,
+            )
+        else:
+            self.seg_nivel_vacio = selector
+            self.lbl_nivel_ayuda_vacio = ayuda
+
+    def _al_cambiar_nivel(self, clave: str) -> None:
+        if self._partida is not None and self._partida.en_curso:
+            self._sincronizar_selectores()
+            return
+        self._nivel = nivel_de(clave).clave
+        self._recordar_nivel()
+        self._sincronizar_selectores()
+        self._aplicar_nivel_en_espera()
+
+    def _sincronizar_selectores(self) -> None:
+        nombre = nivel_de(self._nivel).nombre
+        detalle = textos.descripcion_nivel(self._nivel)
+        for selector in (getattr(self, "seg_nivel", None), getattr(self, "seg_nivel_vacio", None)):
+            if selector is not None:
+                selector.set(self._nivel)
+        if getattr(self, "lbl_nivel_ayuda", None) is not None:
+            self.lbl_nivel_ayuda.configure(text=detalle)
+        if getattr(self, "lbl_nivel_ayuda_vacio", None) is not None:
+            self.lbl_nivel_ayuda_vacio.configure(text=detalle)
+        if getattr(self, "lbl_nivel_activo", None) is not None:
+            self.lbl_nivel_activo.configure(text=textos.texto_nivel_en_curso(nombre))
+        texto_record = textos.texto_record(nombre, cargar_record_practica(nivel=self._nivel))
+        if getattr(self, "lbl_record_vacio", None) is not None:
+            self.lbl_record_vacio.configure(text=texto_record)
+
+    def _recordar_nivel(self) -> None:
+        guardar_nivel_practica(self._nivel)
+        if self._on_nivel is not None:
+            self._on_nivel(self._nivel)
+
+    def _aplicar_nivel_en_espera(self) -> None:
+        """Cambia reloj y récord antes de Inicio. Una partida ya terminada vuelve a la espera."""
+        if self._partida is not None and self._partida.terminada:
+            self._preparar_partida_nueva()
+        info = nivel_de(self._nivel)
+        self._record_referencia = cargar_record_practica(nivel=self._nivel)
+        if self._partida is None:
+            return
+        if self._partida.en_curso:
+            return
+        self._partida.duracion_s = info.duracion_s
+        self._partida.nivel = info.clave
+        self._partida.record = self._record_referencia
+        self._pintar(_vista_inicial(self._partida))
 
     def _al_pipeline_listo(self) -> None:
         if self._pipeline is not None:
@@ -1130,7 +1261,11 @@ class PantallaPractica(_PantallaConCamara):
         self.lbl_tiempo.configure(text=f"{vista.restante_s:.1f} s", text_color=color_tiempo)
         self._pintar_cronometro(vista.restante_s, color_tiempo, terminado=vista.terminado)
         self.lbl_puntos.configure(text=f"Puntos: {vista.puntuacion}")
-        self.lbl_record.configure(text=f"Récord: {vista.record}")
+        self.lbl_record.configure(
+            text=textos.texto_record(nivel_de(self._nivel).nombre, vista.record)
+        )
+        self._pintar_apoyo(vista)
+        self._colocar_nivel(vista)
         self._colocar_inicio(vista)
         if vista.terminado:
             color = tema.COLOR_OK if vista.nuevo_record else tema.COLOR_AVISO
@@ -1150,15 +1285,64 @@ class PantallaPractica(_PantallaConCamara):
         if not vista.en_curso:
             if time.monotonic() >= self._aviso_hasta or vista.puntuacion <= 0:
                 self.lbl_mensaje.configure(
-                    text=textos.mensaje_espera_inicio(),
+                    text=textos.mensaje_espera_nivel(self._nivel),
                     text_color=tema.COLOR_TEXTO_MUDO,
                 )
             return
         if time.monotonic() >= self._aviso_hasta:
             self.lbl_mensaje.configure(
-                text=textos.mensaje_durante_ronda(),
+                text=textos.mensaje_durante_ronda(vista.duracion_s or nivel_de(self._nivel).duracion_s),
                 text_color=tema.COLOR_TEXTO_MUDO,
             )
+
+    def _colocar_nivel(self, vista: VistaPractica) -> None:
+        if not hasattr(self, "marco_nivel"):
+            return
+        if vista.en_curso:
+            if self.marco_nivel.winfo_ismapped():
+                self.marco_nivel.pack_forget()
+            if not self.lbl_nivel_activo.winfo_ismapped():
+                self.lbl_nivel_activo.pack(anchor="w", padx=20, pady=(12, 4), before=self.lbl_pide)
+            return
+        if self.lbl_nivel_activo.winfo_ismapped():
+            self.lbl_nivel_activo.pack_forget()
+        if not self.marco_nivel.winfo_ismapped():
+            self.marco_nivel.pack(anchor="w", fill="x", before=self.lbl_pide)
+
+    def _pintar_apoyo(self, vista: VistaPractica) -> None:
+        if not vista.apoyo_visible:
+            self._ocultar_apoyo()
+            return
+        ruta = imagen_de_letra(vista.letra)
+        if ruta is None:
+            if self.marco_apoyo.winfo_ismapped():
+                self.marco_apoyo.pack_forget()
+            self._foto_clave = ""
+            if not self.lbl_sin_foto.winfo_ismapped():
+                self.lbl_sin_foto.pack(anchor="w", padx=20, pady=(0, 6), before=self.lbl_crono)
+            return
+        if self.lbl_sin_foto.winfo_ismapped():
+            self.lbl_sin_foto.pack_forget()
+        clave = str(ruta)
+        if clave != self._foto_clave or self._foto_ref is None:
+            with Image.open(ruta) as abierta:
+                pil = abierta.convert("RGB")
+                pil.load()
+            ancho, alto = pil.size
+            escala = min(132 / max(ancho, 1), 132 / max(alto, 1), 1.0)
+            tamano = (max(1, int(ancho * escala)), max(1, int(alto * escala)))
+            imagen = ctk.CTkImage(light_image=pil, dark_image=pil, size=tamano)
+            self._foto_ref = imagen
+            self._foto_clave = clave
+            self.lbl_apoyo.configure(image=imagen)
+        if not self.marco_apoyo.winfo_ismapped():
+            self.marco_apoyo.pack(anchor="w", padx=20, pady=(0, 6), before=self.lbl_crono)
+
+    def _ocultar_apoyo(self) -> None:
+        if getattr(self, "marco_apoyo", None) is not None and self.marco_apoyo.winfo_ismapped():
+            self.marco_apoyo.pack_forget()
+        if getattr(self, "lbl_sin_foto", None) is not None and self.lbl_sin_foto.winfo_ismapped():
+            self.lbl_sin_foto.pack_forget()
 
     def _colocar_inicio(self, vista: VistaPractica) -> None:
         if vista.en_curso:
@@ -1179,6 +1363,7 @@ class PantallaPractica(_PantallaConCamara):
         # Partida nueva: el filtro no debe traer la seña que quedó en la espera.
         if self._pipeline is not None:
             self._pipeline.reiniciar_estabilidad()
+        self._recordar_nivel()
         vista = self._partida.iniciar(time.monotonic())
         self._audio.iniciar_reloj()
         self.lbl_sena.configure(text="Tu seña estable: —")
@@ -1188,12 +1373,12 @@ class PantallaPractica(_PantallaConCamara):
         if self._record_guardado:
             return
         self._record_guardado = True
-        vigente = guardar_record_practica(vista.puntuacion)
+        vigente = guardar_record_practica(vista.puntuacion, nivel=self._nivel)
         if self._partida is not None:
             self._partida.record = vigente
-        self.lbl_record.configure(text=f"Récord: {vigente}")
+        self.lbl_record.configure(text=textos.texto_record(nivel_de(self._nivel).nombre, vigente))
         if self._on_record is not None:
-            self._on_record(vigente)
+            self._on_record(vigente, self._nivel)
 
     def _preparar_partida_nueva(self) -> None:
         """Arma otra partida en espera. El cronómetro sigue parado hasta Inicio."""
@@ -1201,15 +1386,23 @@ class PantallaPractica(_PantallaConCamara):
         self._letras = letras_estaticas_disponibles()
         self._record_guardado = False
         self._record_anunciado = False
-        self._record_referencia = cargar_record_practica()
+        info = nivel_de(self._nivel)
+        self._record_referencia = cargar_record_practica(nivel=self._nivel)
         if not self._letras:
             self._partida = None
             self.marco_juego.pack_forget()
             if not self.marco_vacio.winfo_ismapped():
                 self.marco_vacio.pack(fill="both", expand=True)
-            self.lbl_record_vacio.configure(text=f"Récord: {cargar_record_practica()}")
+            self.lbl_record_vacio.configure(
+                text=textos.texto_record(info.nombre, self._record_referencia)
+            )
             return
-        self._partida = PartidaPractica(self._letras, record=self._record_referencia)
+        self._partida = PartidaPractica(
+            self._letras,
+            record=self._record_referencia,
+            duracion_s=info.duracion_s,
+            nivel=info.clave,
+        )
         self.marco_vacio.pack_forget()
         if not self.marco_juego.winfo_ismapped():
             self.marco_juego.pack(fill="both", expand=True)
@@ -1241,6 +1434,9 @@ def _vista_inicial(partida: PartidaPractica) -> VistaPractica:
         terminado=False,
         motivo=None,
         nuevo_record=False,
+        nivel=partida.nivel,
+        apoyo_visible=False,
+        duracion_s=partida.duracion_s,
     )
 
 
@@ -1353,6 +1549,25 @@ class PantallaCaptura(_PantallaConCamara):
         )
         self.ent_etiqueta.pack(fill="x", padx=20, pady=(0, 10))
 
+        self.chk_foto = ctk.CTkCheckBox(
+            self.lateral,
+            text="Guardar foto de apoyo",
+            font=ctk.CTkFont(size=13),
+            text_color=tema.COLOR_TEXTO,
+            fg_color=tema.COLOR_ACENTO,
+            hover_color=tema.COLOR_ACENTO_HOVER,
+            border_color=tema.COLOR_BORDE,
+            checkmark_color=tema.COLOR_TEXTO_INVERSO,
+        )
+        self.lbl_foto = ctk.CTkLabel(
+            self.lateral,
+            text=textos.ayuda_foto_apoyo(),
+            font=ctk.CTkFont(size=12),
+            text_color=tema.COLOR_TEXTO_MUDO,
+            wraplength=310,
+            justify="left",
+        )
+
         self.btn_guardar = ctk.CTkButton(
             self.lateral,
             text="Guardar seña",
@@ -1445,6 +1660,27 @@ class PantallaCaptura(_PantallaConCamara):
                 hover_color=tema.COLOR_ACENTO_HOVER,
             )
         self.lbl_ayuda.configure(text=textos.ayuda_captura(palabra=es_palabra, dinamica=dinamica))
+        self._sincronizar_foto()
+
+    def _quiere_foto(self) -> bool:
+        if not hasattr(self, "chk_foto"):
+            return False
+        return (not self._tipo_dinamico()) and self._categoria_actual() == CATEGORIA_LETRA and bool(self.chk_foto.get())
+
+    def _sincronizar_foto(self) -> None:
+        if not hasattr(self, "chk_foto") or not hasattr(self, "btn_guardar"):
+            return
+        mostrar = (not self._tipo_dinamico()) and self._categoria_actual() == CATEGORIA_LETRA
+        if mostrar:
+            if not self.chk_foto.winfo_ismapped():
+                self.chk_foto.pack(anchor="w", padx=20, pady=(0, 2), before=self.btn_guardar)
+            if not self.lbl_foto.winfo_ismapped():
+                self.lbl_foto.pack(anchor="w", padx=20, pady=(0, 8), before=self.btn_guardar)
+            return
+        if self.chk_foto.winfo_ismapped():
+            self.chk_foto.pack_forget()
+        if self.lbl_foto.winfo_ismapped():
+            self.lbl_foto.pack_forget()
 
     def _guardar_o_alternar(self) -> None:
         if self._tipo_dinamico():
@@ -1524,12 +1760,14 @@ class PantallaCaptura(_PantallaConCamara):
         if self._pipeline is None:
             self._avisar(textos.MENSAJE_SIN_CAMARA_ACCION, tema.COLOR_ERROR)
             return
+        quiere_foto = self._quiere_foto()
         try:
-            self._pipeline.guardar_plantilla(
+            ruta = self._pipeline.guardar_plantilla(
                 etiqueta,
                 consentimiento=True,
                 tipo="estatico",
                 categoria=self._categoria_actual(),
+                guardar_imagen=quiere_foto,
             )
         except ValueError as exc:
             self._avisar(str(exc), tema.COLOR_ERROR)
@@ -1537,11 +1775,22 @@ class PantallaCaptura(_PantallaConCamara):
         except Exception:  # noqa: BLE001
             self._avisar(textos.mensaje_no_se_pudo_guardar(), tema.COLOR_ERROR)
             return
+        con_foto = False
+        if quiere_foto:
+            try:
+                import json
+
+                guardado = json.loads(Path(ruta).read_text(encoding="utf-8"))
+                con_foto = bool(guardado.get("imagen_apoyo"))
+            except (OSError, json.JSONDecodeError, TypeError):
+                con_foto = False
         self._avisar(
             textos.mensaje_plantilla_guardada(
                 etiqueta,
                 palabra=self._categoria_actual() == CATEGORIA_PALABRA,
                 dinamica=False,
+                con_foto=con_foto,
+                foto_no_pudo=quiere_foto and not con_foto,
             ),
             tema.COLOR_OK,
         )
@@ -2183,6 +2432,8 @@ class PantallaConfiguracion(ctk.CTkFrame):
             metrica=self.seg_metrica.get() or "euclidiana",
             tema=self._base.tema,
             record_practica=self._base.record_practica,
+            records_practica=dict(self._base.records_practica or {}),
+            nivel_practica=self._base.nivel_practica,
         ).normalizado()
 
     def _al_cambiar_tema(self, modo: str) -> None:

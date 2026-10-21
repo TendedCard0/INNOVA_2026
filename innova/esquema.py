@@ -10,6 +10,8 @@ MediaPipe Pose y Face Mesh). En Abecedario quedan en null.
 
 from __future__ import annotations
 
+import base64
+import re
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Iterable
@@ -26,6 +28,13 @@ CATEGORIA_PALABRA = "palabra"
 CATEGORIA_TODAS = "todas"
 CATEGORIAS_MUESTRA = frozenset({CATEGORIA_LETRA, CATEGORIA_PALABRA})
 FILTROS_CATEGORIA = frozenset({CATEGORIA_LETRA, CATEGORIA_PALABRA, CATEGORIA_TODAS})
+
+# Foto opcional de Mini juego. Vive junto a las plantillas, en la carpeta de
+# datos del usuario: ``plantillas/referencias/<nombre>.jpg``.
+CARPETA_REFERENCIAS = "referencias"
+_RE_ARCHIVO_APOYO = re.compile(rf"^{CARPETA_REFERENCIAS}/[A-Za-z0-9_-]+\.jpe?g$")
+# Un recorte chico de la mano. Por encima de esto se ignora el bloque, no la seña.
+MAX_BYTES_IMAGEN_APOYO = 400_000
 
 
 class ErrorEsquema(ValueError):
@@ -81,6 +90,22 @@ class SecuenciaEsquema:
 
 
 @dataclass
+class ImagenApoyo:
+    """Recorte opcional de la cámara, asociado a una plantilla estática.
+
+    ``archivo`` es relativo a la carpeta de plantillas. ``datos`` solo viaja
+    en memoria (o dentro de un paquete JSON); la biblioteca en disco guarda
+    el JPEG aparte y deja aquí la ruta.
+    """
+
+    archivo: str
+    datos: bytes | None = None
+
+    def a_dict(self) -> dict[str, Any]:
+        return {"archivo": self.archivo}
+
+
+@dataclass
 class MetadatosMuestra:
     marca_tiempo: str
     fps: float | None = None
@@ -111,9 +136,10 @@ class MuestraLSM:
     metadatos: MetadatosMuestra
     version: str = VERSION_ESQUEMA
     categoria: str = CATEGORIA_LETRA
+    imagen_apoyo: ImagenApoyo | None = None
 
     def a_dict(self) -> dict[str, Any]:
-        return {
+        datos: dict[str, Any] = {
             "version": self.version,
             "etiqueta": self.etiqueta,
             "categoria": self.categoria,
@@ -124,6 +150,9 @@ class MuestraLSM:
             "secuencia": None if self.secuencia is None else self.secuencia.a_dict(),
             "metadatos": self.metadatos.a_dict(),
         }
+        if self.imagen_apoyo is not None:
+            datos["imagen_apoyo"] = self.imagen_apoyo.a_dict()
+        return datos
 
 
 def mano_desde_deteccion(mano: ManoDetectada) -> ManoEsquema:
@@ -153,11 +182,13 @@ def muestra_estatica_desde_mano(
     categoria: str = CATEGORIA_LETRA,
     pose: dict[str, Any] | None = None,
     rostro: dict[str, Any] | None = None,
+    imagen_apoyo: ImagenApoyo | None = None,
 ) -> MuestraLSM:
     """Crea una muestra `tipo=estatico` lista para serializar.
 
     `pose` / `rostro` quedan en null en letras. En palabras, `innova.cuerpo`
-    los llena cuando la cámara ve a la persona.
+    los llena cuando la cámara ve a la persona. `imagen_apoyo` es opcional:
+    un recorte de la cámara para Mini juego. Las plantillas viejas no lo traen.
     """
     etiqueta_n = normalizar_etiqueta(etiqueta)
     return MuestraLSM(
@@ -176,6 +207,7 @@ def muestra_estatica_desde_mano(
             consentimiento=bool(consentimiento),
             origen=origen,
         ),
+        imagen_apoyo=imagen_apoyo,
     )
 
 
@@ -255,6 +287,7 @@ def muestra_desde_dict(datos: dict[str, Any]) -> MuestraLSM:
             consentimiento=bool(meta_bruta.get("consentimiento", False)),
             origen=str(meta_bruta.get("origen") or ""),
         ),
+        imagen_apoyo=interpretar_imagen_apoyo(datos.get("imagen_apoyo")),
     )
 
 
@@ -289,6 +322,34 @@ def validar_muestra(datos: Any) -> list[str]:
     errores.extend(_errores_secuencia(datos.get("secuencia"), obligatorio=(tipo == "dinamico")))
     errores.extend(_errores_metadatos(datos.get("metadatos")))
     return errores
+
+
+def archivo_apoyo_permitido(valor: Any) -> str | None:
+    """Ruta relativa ``referencias/<nombre>.jpg``, o None si no es segura."""
+    if not isinstance(valor, str):
+        return None
+    limpio = valor.replace("\\", "/").strip()
+    if _RE_ARCHIVO_APOYO.fullmatch(limpio) is None:
+        return None
+    return limpio
+
+
+def interpretar_imagen_apoyo(valor: Any) -> ImagenApoyo | None:
+    """Lee el bloque opcional. Si viene mal formado, la seña sigue sin foto.
+
+    Ausente o null: no hay foto (plantillas viejas). Un archivo fuera de
+    ``referencias/`` o con ``..`` se ignora. ``datos`` es JPEG en base64 y
+    solo hace falta para llevar la foto dentro de un paquete de un solo JSON.
+    """
+    if valor is None or valor == "":
+        return None
+    if not isinstance(valor, dict):
+        return None
+    archivo = archivo_apoyo_permitido(valor.get("archivo"))
+    datos = _bytes_imagen(valor.get("datos"), valor.get("formato"))
+    if archivo is None and datos is None:
+        return None
+    return ImagenApoyo(archivo=archivo or "", datos=datos)
 
 
 def normalizar_etiqueta(texto: str) -> str:
@@ -479,6 +540,24 @@ def _float_o_none(valor: Any) -> float | None:
 
 def _es_numero(valor: Any) -> bool:
     return isinstance(valor, (int, float)) and not isinstance(valor, bool)
+
+
+def _bytes_imagen(datos: Any, formato: Any) -> bytes | None:
+    if datos is None or datos == "":
+        return None
+    if formato not in (None, "", "jpeg", "jpg", "JPEG", "JPG"):
+        return None
+    if not isinstance(datos, str):
+        return None
+    try:
+        crudo = base64.b64decode(datos, validate=True)
+    except (ValueError, TypeError):
+        return None
+    if not crudo or len(crudo) > MAX_BYTES_IMAGEN_APOYO:
+        return None
+    if crudo[:2] != b"\xff\xd8":
+        return None
+    return crudo
 
 
 def _ahora_iso() -> str:

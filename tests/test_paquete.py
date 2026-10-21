@@ -129,6 +129,82 @@ class TestEmpaquetado(unittest.TestCase):
             importar_paquete(json_ruta, destino)
             self.assertEqual([m.etiqueta for m in cargar_plantillas(destino)], ["B"])
 
+    def test_la_foto_viaja_en_version_1_y_sin_foto_tambien(self) -> None:
+        import numpy as np
+
+        from innova.esquema import ImagenApoyo
+        from innova.imagen_apoyo import guardar_jpeg_apoyo, recortar_mano_jpeg
+
+        frame = np.zeros((80, 80, 3), dtype=np.uint8)
+        frame[20:60, 20:60] = (30, 90, 180)
+        jpeg = recortar_mano_jpeg(frame, _mano())
+        self.assertIsNotNone(jpeg)
+        assert jpeg is not None
+
+        with self._dirs() as (origen, destino, archivo):
+            rel = guardar_jpeg_apoyo(jpeg, "A", origen, "20261021T120000")
+            self.assertIsNotNone(rel)
+            assert rel is not None
+            guardar_plantilla(
+                _estatica("A", categoria="letra", imagen_apoyo=ImagenApoyo(archivo=rel)),
+                origen,
+            )
+            guardar_plantilla(_estatica("C", categoria="letra"), origen)
+            resultado = exportar_biblioteca(origen, archivo, creado="2026-10-21T00:00:00+00:00")
+            self.assertEqual(resultado.conteo, 2)
+            with zipfile.ZipFile(resultado.ruta) as paquete:
+                nombres = paquete.namelist()
+                manifiesto = json.loads(paquete.read("manifiesto.json"))
+                fotos = [n for n in nombres if n.endswith(".jpg")]
+                self.assertEqual(manifiesto["version"], "1.0")
+                self.assertEqual(len(fotos), 1)
+                self.assertTrue(fotos[0].startswith("plantillas/referencias/"))
+                self.assertNotIn("..", fotos[0])
+                self.assertEqual(paquete.read(fotos[0]), jpeg)
+                for nombre in manifiesto["archivos"]:
+                    pieza = json.loads(paquete.read(nombre))
+                    if pieza["etiqueta"] == "A":
+                        self.assertEqual(pieza["imagen_apoyo"]["archivo"], rel)
+                        self.assertNotIn("datos", pieza["imagen_apoyo"])
+                    else:
+                        self.assertNotIn("imagen_apoyo", pieza)
+
+            importar_paquete(resultado.ruta, destino)
+            copiadas = cargar_plantillas(destino)
+            letra_a = next(m for m in copiadas if m.etiqueta == "A")
+            self.assertIsNotNone(letra_a.imagen_apoyo)
+            assert letra_a.imagen_apoyo is not None
+            self.assertIsNone(letra_a.imagen_apoyo.datos)
+            self.assertEqual((destino / letra_a.imagen_apoyo.archivo).read_bytes(), jpeg)
+            self.assertIsNone(next(m for m in copiadas if m.etiqueta == "C").imagen_apoyo)
+
+            json_ruta = destino.parent / "con-foto.json"
+            otro = destino.parent / "desde-json"
+            otro.mkdir()
+            exportar_biblioteca(origen, json_ruta, creado="2026-10-21T00:00:00+00:00")
+            empaquetado = json.loads(json_ruta.read_text(encoding="utf-8"))
+            self.assertEqual(empaquetado["version"], "1.0")
+            con_foto = next(p for p in empaquetado["plantillas"] if p["etiqueta"] == "A")
+            self.assertIn("datos", con_foto["imagen_apoyo"])
+            importar_paquete(json_ruta, otro)
+            importada = next(m for m in cargar_plantillas(otro) if m.etiqueta == "A")
+            assert importada.imagen_apoyo is not None
+            self.assertEqual((otro / importada.imagen_apoyo.archivo).read_bytes(), jpeg)
+
+            # Un paquete 1.0 al que le falta el JPEG no se rechaza: la seña entra sin foto.
+            sin_foto = archivo.with_name("sin-foto.mamatlatolli")
+            with zipfile.ZipFile(resultado.ruta) as origen_zip, zipfile.ZipFile(sin_foto, "w") as salida:
+                for info in origen_zip.infolist():
+                    if info.filename.endswith(".jpg"):
+                        continue
+                    salida.writestr(info.filename, origen_zip.read(info.filename))
+            limpio = destino.parent / "limpio"
+            limpio.mkdir()
+            importar_paquete(sin_foto, limpio)
+            llegada = next(m for m in cargar_plantillas(limpio) if m.etiqueta == "A")
+            self.assertIsNone(llegada.imagen_apoyo)
+            self.assertTrue(any(m.etiqueta == "C" for m in cargar_plantillas(limpio)))
+
     def test_campo_extra_del_manifiesto_no_estorba(self) -> None:
         with self._dirs() as (origen, destino, archivo):
             guardar_plantilla(_estatica("C"), origen)
